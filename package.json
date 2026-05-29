@@ -1,0 +1,62 @@
+{
+  "name": "@org/source",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nx serve @org/wc",
+    "build": "nx build @org/wc",
+    "test": "nx test @org/wc",
+    "e2e": "nx e2e @org/wc-e2e",
+    "typecheck": "nx typecheck @org/wc"
+  },
+  "private": true,
+  "dependencies": {
+    "@auth0/auth0-react": "^2.17.0",
+    "@originjs/vite-plugin-federation": "^1.4.1",
+    "@reduxjs/toolkit": "^2.12.0",
+    "flowbite": "^4.0.2",
+    "flowbite-react": "^0.12.17",
+    "lucide-react": "^1.17.0",
+    "react": "18",
+    "react-dom": "18",
+    "react-redux": "^9.3.0",
+    "react-router-dom": "6"
+  },
+  "devDependencies": {
+    "@nx/devkit": "22.7.5",
+    "@nx/js": "22.7.5",
+    "@nx/playwright": "22.7.5",
+    "@nx/react": "22.7.5",
+    "@nx/vite": "22.7.5",
+    "@nx/vitest": "22.7.5",
+    "@nx/web": "22.7.5",
+    "@playwright/test": "^1.60.0",
+    "@swc-node/register": "1.11.1",
+    "@swc/core": "1.15.8",
+    "@swc/helpers": "0.5.18",
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "20.19.9",
+    "@types/react": "18",
+    "@types/react-dom": "18",
+    "@vitejs/plugin-react": "4",
+    "@vitest/coverage-v8": "2.1.9",
+    "@vitest/ui": "2.1.9",
+    "autoprefixer": "^10.5.0",
+    "eslint": "9",
+    "jiti": "2.4.2",
+    "jsdom": "24.1.3",
+    "nx": "22.7.5",
+    "postcss": "^8.5.15",
+    "prettier": "3.3",
+    "tailwindcss": "3",
+    "tslib": "^2.3.0",
+    "typescript": "~5.9.2",
+    "vite": "5.4.21",
+    "vitest": "2.1.9"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
