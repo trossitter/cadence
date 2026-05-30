@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cadence Render Option 1 - Operating Room</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172033;
+        --muted: #667085;
+        --line: #d6dce8;
+        --paper: #ffffff;
+        --wash: #f4f7fb;
+        --navy: #1b365d;
+        --teal: #0f766e;
+        --green: #287a4d;
+        --amber: #b26016;
+        --red: #b42318;
+        --violet: #6941c6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--wash);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .app-shell {
+        min-height: 100vh;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) auto auto;
+        gap: 16px;
+        align-items: center;
+        padding: 14px 24px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(10px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--navy);
+        color: #ffffff;
+        font-weight: 800;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 19px;
+        line-height: 1.1;
+      }
+
+      .brand p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .theme-links,
+      .view-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .theme-links a,
+      .view-toggle button {
+        min-height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+        padding: 7px 11px;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .theme-links a[aria-current="page"],
+      .view-toggle button[aria-pressed="true"] {
+        border-color: var(--navy);
+        background: var(--navy);
+        color: #ffffff;
+      }
+
+      .page {
+        width: min(1480px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 24px 0 42px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.6fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+      }
+
+      .headline {
+        padding: 24px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--teal);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      .headline h2 {
+        max-width: 840px;
+        margin: 8px 0 12px;
+        font-size: clamp(30px, 5vw, 56px);
+        line-height: 1.02;
+        letter-spacing: 0;
+      }
+
+      .headline p {
+        max-width: 760px;
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .week-card {
+        padding: 20px;
+      }
+
+      .week-card h3 {
+        margin: 0 0 16px;
+        font-size: 17px;
+      }
+
+      .week-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .metric {
+        min-height: 88px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfcfe;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 7px;
+        font-size: 24px;
+      }
+
+      .workflow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin: 18px 0;
+      }
+
+      .stage {
+        min-height: 86px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-left: 5px solid var(--teal);
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .stage:nth-child(2) {
+        border-left-color: var(--navy);
+      }
+
+      .stage:nth-child(3) {
+        border-left-color: var(--amber);
+      }
+
+      .stage:nth-child(4) {
+        border-left-color: var(--green);
+      }
+
+      .stage:nth-child(5) {
+        border-left-color: var(--violet);
+      }
+
+      .stage b {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+
+      .stage span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .view {
+        display: grid;
+        grid-template-columns: minmax(0, 0.95fr) minmax(360px, 0.5fr);
+        gap: 18px;
+      }
+
+      .view[hidden] {
+        display: none;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 18px 0;
+      }
+
+      .section-head h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .section-head p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        padding: 18px;
+      }
+
+      table {
+        width: 100%;
+        min-width: 840px;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+
+      .tag {
+        display: inline-flex;
+        min-height: 25px;
+        align-items: center;
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .tag.green {
+        background: #dcfae6;
+        color: var(--green);
+      }
+
+      .tag.amber {
+        background: #fef0c7;
+        color: var(--amber);
+      }
+
+      .tag.red {
+        background: #fee4e2;
+        color: var(--red);
+      }
+
+      .tag.blue {
+        background: #dbeafe;
+        color: var(--navy);
+      }
+
+      .tag.violet {
+        background: #ebe9fe;
+        color: var(--violet);
+      }
+
+      .side-stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .list {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+      }
+
+      .item {
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfcfe;
+      }
+
+      .item h4 {
+        margin: 0 0 5px;
+        font-size: 14px;
+      }
+
+      .item p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .form-grid {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        color: var(--ink);
+        font: inherit;
+        padding: 9px 10px;
+      }
+
+      textarea {
+        min-height: 74px;
+        resize: vertical;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .button {
+        border: 1px solid var(--navy);
+        border-radius: 8px;
+        background: var(--navy);
+        color: #ffffff;
+        font: inherit;
+        font-weight: 800;
+        padding: 9px 12px;
+      }
+
+      .button.secondary {
+        border-color: var(--line);
+        background: #ffffff;
+        color: var(--ink);
+      }
+
+      .proof-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .proof-grid .panel {
+        padding: 18px;
+      }
+
+      .proof-grid h3 {
+        margin: 0 0 10px;
+      }
+
+      .proof-grid ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+      }
+
+      .proof-grid li + li {
+        margin-top: 6px;
+      }
+
+      @media (max-width: 1080px) {
+        .topbar,
+        .hero,
+        .view,
+        .proof-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .workflow {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .topbar {
+          position: static;
+          padding: 12px;
+        }
+
+        .theme-links,
+        .view-toggle {
+          flex-wrap: wrap;
+        }
+
+        .page {
+          width: min(100% - 20px, 1480px);
+          padding-top: 14px;
+        }
+
+        .workflow,
+        .week-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">C</div>
+          <div>
+            <h1>Cadence Operating Room</h1>
+            <p>Render option 1 - dense weekly execution control</p>
+          </div>
+        </div>
+        <nav class="theme-links" aria-label="Render options">
+          <a href="option-1-operating-room.html" aria-current="page">Operating Room</a>
+          <a href="option-2-workflow-timeline.html">Timeline</a>
+          <a href="option-3-executive-ledger.html">Ledger</a>
+        </nav>
+        <div class="view-toggle" aria-label="View mode">
+          <button type="button" data-view-target="director" aria-pressed="true">Director</button>
+          <button type="button" data-view-target="contributor" aria-pressed="false">Contributor</button>
+        </div>
+      </header>
+
+      <main class="page">
+        <section class="hero">
+          <div class="panel headline">
+            <p class="eyebrow">Weekly Commit Module</p>
+            <h2>Every weekly commitment has a strategic address.</h2>
+            <p>
+              This direction favors a manager-ready control surface: coverage, lock status, review risk, and RCDO
+              mapping are visible before the team burns a week on misaligned work.
+            </p>
+          </div>
+          <aside class="panel week-card">
+            <h3>Week of Jun 1, 2026</h3>
+            <div class="week-grid">
+              <div class="metric"><span>Aligned</span><strong>86%</strong></div>
+              <div class="metric"><span>Locked</span><strong>31/42</strong></div>
+              <div class="metric"><span>At risk</span><strong>7</strong></div>
+              <div class="metric"><span>Review SLA</span><strong>18h</strong></div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="workflow" aria-label="Weekly lifecycle">
+          <div class="stage"><b>Draft</b><span>Create RCDO-linked weekly intent.</span></div>
+          <div class="stage"><b>Lock</b><span>Freeze the weekly contract.</span></div>
+          <div class="stage"><b>Reconcile</b><span>Compare planned and actual value.</span></div>
+          <div class="stage"><b>Review</b><span>Director accepts or requests changes.</span></div>
+          <div class="stage"><b>Carry Forward</b><span>Move valuable unfinished work with context.</span></div>
+        </section>
+
+        <section class="view" data-view="director">
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <h3>Director Alignment Board</h3>
+                <p>Team work grouped by RCDO link, leverage, confidence, and reconciliation state.</p>
+              </div>
+              <span class="tag amber">Lock window closes today</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Owner</th>
+                    <th>Commitment</th>
+                    <th>RCDO Link</th>
+                    <th>Layer</th>
+                    <th>Status</th>
+                    <th>Director Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Mira Petrova</td>
+                    <td>Prepare Q2 operating partner cadence review</td>
+                    <td>Raise portfolio operating velocity / Execution signals mapped weekly</td>
+                    <td><span class="tag violet">Queen</span></td>
+                    <td><span class="tag blue">Locked</span></td>
+                    <td>Accept plan</td>
+                  </tr>
+                  <tr>
+                    <td>Nikolay Ivanov</td>
+                    <td>Reconcile weekly hiring commitments</td>
+                    <td>Build leadership bench strength / Critical hiring plans visible</td>
+                    <td><span class="tag blue">Rook</span></td>
+                    <td><span class="tag amber">Reconciling</span></td>
+                    <td>Review actuals</td>
+                  </tr>
+                  <tr>
+                    <td>Amara Shah</td>
+                    <td>Unblock board-readiness legal dependency</td>
+                    <td>Raise portfolio operating velocity / Board pack readiness</td>
+                    <td><span class="tag green">Knight</span></td>
+                    <td><span class="tag red">At risk</span></td>
+                    <td>Escalate blocker</td>
+                  </tr>
+                  <tr>
+                    <td>Devon Lee</td>
+                    <td>Publish weekly portfolio signal dashboard</td>
+                    <td>Raise portfolio operating velocity / Execution signals mapped weekly</td>
+                    <td><span class="tag green">Bishop</span></td>
+                    <td><span class="tag green">Ready</span></td>
+                    <td>Lock</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside class="side-stack">
+            <div class="panel">
+              <div class="section-head">
+                <div>
+                  <h3>RCDO Coverage</h3>
+                  <p>Strategic heat before weekly lock.</p>
+                </div>
+              </div>
+              <div class="list">
+                <div class="item"><h4>Operating velocity</h4><p>28 commitments, 4 high leverage, 2 blocked.</p></div>
+                <div class="item"><h4>Leadership bench</h4><p>9 commitments, 1 low confidence item needs support.</p></div>
+                <div class="item"><h4>Board readiness</h4><p>5 commitments, legal dependency is the main risk.</p></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="section-head"><h3>Manager Review Queue</h3></div>
+              <div class="list">
+                <div class="item"><h4>3 reconciliation records</h4><p>Actual value submitted, awaiting approval.</p></div>
+                <div class="item"><h4>2 carry-forward requests</h4><p>Both include blocker reason and next-week target.</p></div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="view" data-view="contributor" hidden>
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <h3>Contributor Weekly Plan</h3>
+                <p>Draft commitments must choose a Supporting Outcome before lock.</p>
+              </div>
+              <span class="tag blue">Draft mode</span>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="title">Commitment</label>
+                <input id="title" value="Publish weekly portfolio signal dashboard" />
+              </div>
+              <div class="field">
+                <label for="outcome">Supporting Outcome</label>
+                <select id="outcome">
+                  <option>Execution signals mapped weekly</option>
+                  <option>Critical hiring plans visible</option>
+                  <option>Board pack readiness</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="planned">Planned Value</label>
+                <textarea id="planned">Dashboard ships with owner, status, confidence, and RCDO columns.</textarea>
+              </div>
+              <div class="actions">
+                <button class="button" type="button">Submit for Lock</button>
+                <button class="button secondary" type="button">Save Draft</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side-stack">
+            <div class="panel">
+              <div class="section-head"><h3>My Week</h3></div>
+              <div class="list">
+                <div class="item"><h4>2 locked</h4><p>Execution commitments are frozen for the week.</p></div>
+                <div class="item"><h4>1 needs actuals</h4><p>Reconciliation opens when the week closes.</p></div>
+                <div class="item"><h4>Confidence 78%</h4><p>One dependency should be raised to the Director.</p></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="section-head"><h3>Reconciliation Draft</h3></div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="actual">Actual Value</label>
+                  <textarea id="actual">Dashboard completed for 31 commitments; 4 missing owner confidence.</textarea>
+                </div>
+                <button class="button" type="button">Send Actuals</button>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="proof-grid" aria-label="Technical proof and demo stories">
+          <div class="panel">
+            <h3>Technical Proof</h3>
+            <ul>
+              <li>React remote owns the weekly planning surface.</li>
+              <li>RTK Query owns current week, create, review, and manager cache.</li>
+              <li>Spring service should enforce lifecycle transitions.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Business Story</h3>
+            <ul>
+              <li>42 weekly commitments entered Monday.</li>
+              <li>2 unlinked commitments caught before lock.</li>
+              <li>Manager review moves from Friday surprise to Monday correction.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Why This Direction</h3>
+            <ul>
+              <li>Best for managers with multiple direct reports.</li>
+              <li>Dense enough for repeated weekly use.</li>
+              <li>Tradeoff: contributor planning is less emotionally guided.</li>
+            </ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const buttons = document.querySelectorAll("[data-view-target]");
+      const views = document.querySelectorAll("[data-view]");
+
+      function setView(target) {
+        buttons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.viewTarget === target));
+        });
+        views.forEach((view) => {
+          view.hidden = view.dataset.view !== target;
+        });
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => setView(button.dataset.viewTarget));
+      });
+    </script>
+  </body>
+</html>

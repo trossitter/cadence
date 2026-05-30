@@ -45,6 +45,14 @@ cadence/
 └── docker-compose.yml
 ```
 
+The deeper architecture and demo proof narrative lives in `docs/ARCHITECTURE.md`.
+
+Static render directions for the Director/Contributor split live in `docs/render-options`:
+
+- `option-1-operating-room.html`
+- `option-2-workflow-timeline.html`
+- `option-3-executive-ledger.html`
+
 ## Frontend
 
 The frontend is a client-side SPA remote:

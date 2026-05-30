@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cadence Render Option 2 - Workflow Timeline</title>
+    <style>
+      :root {
+        --ink: #182230;
+        --muted: #667085;
+        --paper: #ffffff;
+        --wash: #f7f5ef;
+        --line: #ddd6c5;
+        --forest: #315c48;
+        --rust: #9a4a2f;
+        --blue: #255c99;
+        --gold: #af7a10;
+        --plum: #6f3f77;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--wash);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) auto auto;
+        gap: 16px;
+        align-items: center;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--line);
+        background: var(--paper);
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .brand p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .theme-links,
+      .view-toggle {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .theme-links a,
+      .view-toggle button {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffdfa;
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 750;
+        min-height: 36px;
+        padding: 7px 11px;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .theme-links a[aria-current="page"],
+      .view-toggle button[aria-pressed="true"] {
+        border-color: var(--forest);
+        background: var(--forest);
+        color: #ffffff;
+      }
+
+      main {
+        width: min(1280px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 44px;
+      }
+
+      .opening {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(300px, 0.5fr);
+        gap: 22px;
+        align-items: end;
+      }
+
+      .opening h2 {
+        max-width: 780px;
+        margin: 0;
+        font-size: clamp(34px, 5vw, 64px);
+        line-height: 1.02;
+        letter-spacing: 0;
+      }
+
+      .opening p {
+        margin: 12px 0 0;
+        max-width: 680px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .summary {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        padding: 18px;
+      }
+
+      .summary strong {
+        display: block;
+        font-size: 34px;
+      }
+
+      .summary span {
+        color: var(--muted);
+      }
+
+      .timeline {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 14px;
+        margin: 28px 0;
+      }
+
+      .step {
+        min-height: 146px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        padding: 16px;
+      }
+
+      .step-number {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        margin-bottom: 14px;
+        border-radius: 999px;
+        background: var(--forest);
+        color: #ffffff;
+        font-weight: 850;
+      }
+
+      .step:nth-child(2) .step-number {
+        background: var(--blue);
+      }
+
+      .step:nth-child(3) .step-number {
+        background: var(--gold);
+      }
+
+      .step:nth-child(4) .step-number {
+        background: var(--rust);
+      }
+
+      .step:nth-child(5) .step-number {
+        background: var(--plum);
+      }
+
+      .step h3 {
+        margin: 0 0 6px;
+        font-size: 17px;
+      }
+
+      .step p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .view {
+        display: grid;
+        grid-template-columns: minmax(0, 0.65fr) minmax(0, 0.85fr);
+        gap: 20px;
+      }
+
+      .view[hidden] {
+        display: none;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+      }
+
+      .panel-header {
+        padding: 18px 18px 0;
+      }
+
+      .panel-header h3 {
+        margin: 0;
+        font-size: 19px;
+      }
+
+      .panel-header p {
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+      }
+
+      .commit {
+        display: grid;
+        gap: 9px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffdfa;
+        padding: 14px;
+      }
+
+      .commit h4 {
+        margin: 0;
+        font-size: 15px;
+      }
+
+      .commit p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 25px;
+        border-radius: 999px;
+        padding: 3px 9px;
+        background: #edf7f2;
+        color: var(--forest);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .pill.gold {
+        background: #fff4d6;
+        color: var(--gold);
+      }
+
+      .pill.blue {
+        background: #e7f0fb;
+        color: var(--blue);
+      }
+
+      .pill.rust {
+        background: #fce9e2;
+        color: var(--rust);
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        padding: 18px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field.wide {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffdfa;
+        color: var(--ink);
+        font: inherit;
+        padding: 9px 10px;
+      }
+
+      textarea {
+        min-height: 82px;
+        resize: vertical;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        grid-column: 1 / -1;
+      }
+
+      .button {
+        border: 1px solid var(--forest);
+        border-radius: 8px;
+        background: var(--forest);
+        color: #ffffff;
+        font: inherit;
+        font-weight: 850;
+        min-height: 40px;
+        padding: 9px 13px;
+      }
+
+      .button.secondary {
+        border-color: var(--line);
+        background: #fffdfa;
+        color: var(--ink);
+      }
+
+      .impact {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .impact article {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        padding: 16px;
+      }
+
+      .impact h3 {
+        margin: 0 0 8px;
+      }
+
+      .impact p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1020px) {
+        .topbar,
+        .opening,
+        .view,
+        .impact {
+          grid-template-columns: 1fr;
+        }
+
+        .timeline {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .topbar {
+          padding: 12px;
+        }
+
+        main {
+          width: min(100% - 20px, 1280px);
+          padding-top: 18px;
+        }
+
+        .timeline,
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <h1>Cadence Workflow Timeline</h1>
+        <p>Render option 2 - lifecycle-first planning and review</p>
+      </div>
+      <nav class="theme-links" aria-label="Render options">
+        <a href="option-1-operating-room.html">Operating Room</a>
+        <a href="option-2-workflow-timeline.html" aria-current="page">Timeline</a>
+        <a href="option-3-executive-ledger.html">Ledger</a>
+      </nav>
+      <div class="view-toggle" aria-label="View mode">
+        <button type="button" data-view-target="director" aria-pressed="true">Director</button>
+        <button type="button" data-view-target="contributor" aria-pressed="false">Contributor</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="opening">
+        <div>
+          <h2>Make the weekly lifecycle impossible to miss.</h2>
+          <p>
+            This direction turns Cadence into a guided operating rhythm. The user always knows what stage the week is
+            in, what is allowed next, and what evidence is required before work moves forward.
+          </p>
+        </div>
+        <aside class="summary">
+          <span>Current stage</span>
+          <strong>Reconciling</strong>
+          <span>18 of 42 commitments have actual value attached.</span>
+        </aside>
+      </section>
+
+      <section class="timeline" aria-label="Lifecycle">
+        <article class="step"><div class="step-number">1</div><h3>Draft</h3><p>Contributor creates commitments and links each one to a Supporting Outcome.</p></article>
+        <article class="step"><div class="step-number">2</div><h3>Lock</h3><p>Director sees team coverage and freezes the week.</p></article>
+        <article class="step"><div class="step-number">3</div><h3>Execute</h3><p>Confidence and blockers update while the week is active.</p></article>
+        <article class="step"><div class="step-number">4</div><h3>Reconcile</h3><p>Planned value is compared with actual value.</p></article>
+        <article class="step"><div class="step-number">5</div><h3>Carry Forward</h3><p>Unfinished work moves only with owner, reason, and next outcome.</p></article>
+      </section>
+
+      <section class="view" data-view="director">
+        <aside class="panel">
+          <div class="panel-header">
+            <h3>Director Decision Lane</h3>
+            <p>Items are ordered by the next decision required.</p>
+          </div>
+          <div class="stack">
+            <article class="commit">
+              <div class="meta"><span class="pill rust">Escalate</span><span class="pill">Queen</span></div>
+              <h4>Legal dependency blocking board readiness</h4>
+              <p>Amara needs a manager intervention before carry-forward is accepted.</p>
+            </article>
+            <article class="commit">
+              <div class="meta"><span class="pill gold">Review Actuals</span><span class="pill blue">Rook</span></div>
+              <h4>Hiring commitments reconciled across portfolio</h4>
+              <p>18 of 21 actuals submitted; 3 need director note.</p>
+            </article>
+            <article class="commit">
+              <div class="meta"><span class="pill blue">Lock</span><span class="pill">Bishop</span></div>
+              <h4>Portfolio signal dashboard</h4>
+              <p>RCDO link and planned value are complete.</p>
+            </article>
+          </div>
+        </aside>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h3>Review Workflow</h3>
+            <p>The Director acts against state transitions, not loose comments.</p>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="decision">Decision</label>
+              <select id="decision">
+                <option>Approve reconciliation</option>
+                <option>Request clarification</option>
+                <option>Carry forward</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scope">Scope</label>
+              <select id="scope">
+                <option>Team: Operating Partners</option>
+                <option>Outcome: Execution signals</option>
+              </select>
+            </div>
+            <div class="field wide">
+              <label for="note">Review Note</label>
+              <textarea id="note">Accepted. This creates a repeatable operating signal for Friday partner review.</textarea>
+            </div>
+            <div class="actions">
+              <button class="button" type="button">Apply Transition</button>
+              <button class="button secondary" type="button">Request Changes</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" data-view="contributor" hidden>
+        <aside class="panel">
+          <div class="panel-header">
+            <h3>Contributor Lane</h3>
+            <p>Personal work is displayed by lifecycle state.</p>
+          </div>
+          <div class="stack">
+            <article class="commit">
+              <div class="meta"><span class="pill blue">Locked</span><span class="pill">Queen</span></div>
+              <h4>Publish portfolio signal dashboard</h4>
+              <p>Planned value: owner, status, confidence, and RCDO link are visible.</p>
+            </article>
+            <article class="commit">
+              <div class="meta"><span class="pill gold">Reconciling</span><span class="pill blue">Rook</span></div>
+              <h4>Reconcile hiring commitments</h4>
+              <p>Actual value has partial completion and needs blocker explanation.</p>
+            </article>
+            <article class="commit">
+              <div class="meta"><span class="pill rust">Carry Forward</span><span class="pill">Knight</span></div>
+              <h4>Board-readiness legal dependency</h4>
+              <p>Carry-forward requires reason and next-week target.</p>
+            </article>
+          </div>
+        </aside>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h3>Reconcile Commitment</h3>
+            <p>Actual value is structured enough for manager review.</p>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="completion">Completion</label>
+              <select id="completion">
+                <option>Partially complete</option>
+                <option>Complete</option>
+                <option>Blocked</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="confidence">Confidence</label>
+              <input id="confidence" value="48%" />
+            </div>
+            <div class="field wide">
+              <label for="actual">Actual Value</label>
+              <textarea id="actual">18 of 21 hiring commitments reconciled. Three missing owner updates remain.</textarea>
+            </div>
+            <div class="field wide">
+              <label for="carry">Carry-Forward Reason</label>
+              <textarea id="carry">Need director support to get two portfolio companies to update owners.</textarea>
+            </div>
+            <div class="actions">
+              <button class="button" type="button">Submit Reconciliation</button>
+              <button class="button secondary" type="button">Save Draft</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="impact">
+        <article>
+          <h3>Technical Proof</h3>
+          <p>Lifecycle states map directly to backend transitions. UI buttons should call state-change endpoints, and tests should cover invalid transitions.</p>
+        </article>
+        <article>
+          <h3>Demo Story</h3>
+          <p>Nikolay's low-confidence Queen-layer hiring work is surfaced Wednesday, giving the Director time to intervene before Friday review.</p>
+        </article>
+        <article>
+          <h3>Why This Direction</h3>
+          <p>Best when the interview wants to see product judgment around lifecycle design. Tradeoff: less dense than the operating board.</p>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const buttons = document.querySelectorAll("[data-view-target]");
+      const views = document.querySelectorAll("[data-view]");
+
+      function setView(target) {
+        buttons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.viewTarget === target));
+        });
+        views.forEach((view) => {
+          view.hidden = view.dataset.view !== target;
+        });
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => setView(button.dataset.viewTarget));
+      });
+    </script>
+  </body>
+</html>

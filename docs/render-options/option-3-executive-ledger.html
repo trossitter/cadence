@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cadence Render Option 3 - Executive Ledger</title>
+    <style>
+      :root {
+        --ink: #111827;
+        --muted: #687385;
+        --line: #d9dee8;
+        --paper: #ffffff;
+        --wash: #f5f6f8;
+        --black: #171717;
+        --cyan: #0e7490;
+        --green: #217a45;
+        --amber: #a15c07;
+        --red: #b42318;
+        --indigo: #3538cd;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--wash);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.42;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) auto auto;
+        gap: 14px;
+        align-items: center;
+        min-height: 72px;
+        padding: 14px 22px;
+        border-bottom: 1px solid var(--line);
+        background: var(--black);
+        color: #ffffff;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .brand p {
+        margin: 3px 0 0;
+        color: #c9d1df;
+        font-size: 13px;
+      }
+
+      .theme-links,
+      .view-toggle {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .theme-links a,
+      .view-toggle button {
+        border: 1px solid #454b56;
+        border-radius: 8px;
+        background: #242936;
+        color: #ffffff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 750;
+        min-height: 36px;
+        padding: 7px 11px;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .theme-links a[aria-current="page"],
+      .view-toggle button[aria-pressed="true"] {
+        border-color: #ffffff;
+        background: #ffffff;
+        color: var(--black);
+      }
+
+      main {
+        width: min(1500px, calc(100% - 28px));
+        margin: 0 auto;
+        padding: 18px 0 40px;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+      }
+
+      .sidebar {
+        align-self: start;
+        padding: 16px;
+      }
+
+      .sidebar h2 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      .sidebar p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .nav-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .nav-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 11px;
+        background: #fafbfc;
+        font-size: 13px;
+      }
+
+      .nav-item strong {
+        font-size: 18px;
+      }
+
+      .content {
+        display: grid;
+        gap: 16px;
+      }
+
+      .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .kpi {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        padding: 14px;
+      }
+
+      .kpi span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      .kpi strong {
+        display: block;
+        margin-top: 7px;
+        font-size: 28px;
+      }
+
+      .view {
+        display: grid;
+        gap: 16px;
+      }
+
+      .view[hidden] {
+        display: none;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 15px 16px 0;
+      }
+
+      .panel-header h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .panel-header p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        padding: 15px 16px 16px;
+      }
+
+      table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 11px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+
+      .badge {
+        display: inline-flex;
+        min-height: 24px;
+        align-items: center;
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-size: 12px;
+        font-weight: 850;
+        white-space: nowrap;
+      }
+
+      .badge.blue {
+        background: #e0f2fe;
+        color: var(--cyan);
+      }
+
+      .badge.green {
+        background: #dcfae6;
+        color: var(--green);
+      }
+
+      .badge.amber {
+        background: #fef0c7;
+        color: var(--amber);
+      }
+
+      .badge.red {
+        background: #fee4e2;
+        color: var(--red);
+      }
+
+      .badge.indigo {
+        background: #e0e7ff;
+        color: var(--indigo);
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 0.48fr);
+        gap: 16px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+      }
+
+      .record {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fafbfc;
+        padding: 12px;
+      }
+
+      .record h4 {
+        margin: 0 0 6px;
+        font-size: 14px;
+      }
+
+      .record p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field.wide {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        color: var(--ink);
+        font: inherit;
+        padding: 9px 10px;
+      }
+
+      textarea {
+        min-height: 78px;
+        resize: vertical;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        grid-column: 1 / -1;
+      }
+
+      .button {
+        border: 1px solid var(--black);
+        border-radius: 8px;
+        background: var(--black);
+        color: #ffffff;
+        font: inherit;
+        font-weight: 850;
+        min-height: 40px;
+        padding: 9px 12px;
+      }
+
+      .button.secondary {
+        border-color: var(--line);
+        background: #ffffff;
+        color: var(--ink);
+      }
+
+      .bottom-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .bottom-row .panel {
+        padding: 16px;
+      }
+
+      .bottom-row h3 {
+        margin: 0 0 8px;
+      }
+
+      .bottom-row p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1120px) {
+        .topbar,
+        .dashboard-grid,
+        .split,
+        .bottom-row {
+          grid-template-columns: 1fr;
+        }
+
+        .kpi-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .topbar {
+          padding: 12px;
+        }
+
+        main {
+          width: min(100% - 20px, 1500px);
+        }
+
+        .kpi-row,
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <h1>Cadence Executive Ledger</h1>
+        <p>Render option 3 - data-heavy review and audit surface</p>
+      </div>
+      <nav class="theme-links" aria-label="Render options">
+        <a href="option-1-operating-room.html">Operating Room</a>
+        <a href="option-2-workflow-timeline.html">Timeline</a>
+        <a href="option-3-executive-ledger.html" aria-current="page">Ledger</a>
+      </nav>
+      <div class="view-toggle" aria-label="View mode">
+        <button type="button" data-view-target="director" aria-pressed="true">Director</button>
+        <button type="button" data-view-target="contributor" aria-pressed="false">Contributor</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="dashboard-grid">
+        <aside class="panel sidebar">
+          <h2>Weekly execution ledger</h2>
+          <p>
+            This direction treats commitments as auditable records. It is the most enterprise-feeling option and the
+            strongest fit for manager review at scale.
+          </p>
+          <div class="nav-list">
+            <div class="nav-item"><span>Linked to RCDO</span><strong>40</strong></div>
+            <div class="nav-item"><span>Need review</span><strong>7</strong></div>
+            <div class="nav-item"><span>Carry-forward</span><strong>2</strong></div>
+            <div class="nav-item"><span>Avg confidence</span><strong>74%</strong></div>
+          </div>
+        </aside>
+
+        <section class="content">
+          <div class="kpi-row" aria-label="Weekly metrics">
+            <div class="kpi"><span>Commitments</span><strong>42</strong></div>
+            <div class="kpi"><span>Strategic coverage</span><strong>95%</strong></div>
+            <div class="kpi"><span>Review queue</span><strong>7</strong></div>
+            <div class="kpi"><span>Time to review</span><strong>18h</strong></div>
+          </div>
+
+          <section class="view" data-view="director">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Director Ledger</h3>
+                  <p>Designed for sorting, filtering, pagination, and audit review.</p>
+                </div>
+                <span class="badge amber">Page 1 of 9</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Owner</th>
+                      <th>Title</th>
+                      <th>Rally Cry</th>
+                      <th>Outcome</th>
+                      <th>Layer</th>
+                      <th>Status</th>
+                      <th>Confidence</th>
+                      <th>Next Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Mira Petrova</td>
+                      <td>Prepare Q2 operating partner cadence review</td>
+                      <td>Raise portfolio operating velocity</td>
+                      <td>Execution signals mapped weekly</td>
+                      <td><span class="badge indigo">Queen</span></td>
+                      <td><span class="badge blue">Locked</span></td>
+                      <td>82%</td>
+                      <td>Monitor</td>
+                    </tr>
+                    <tr>
+                      <td>Nikolay Ivanov</td>
+                      <td>Reconcile weekly hiring commitments</td>
+                      <td>Build leadership bench strength</td>
+                      <td>Critical hiring plans visible</td>
+                      <td><span class="badge blue">Rook</span></td>
+                      <td><span class="badge amber">Reconciling</span></td>
+                      <td>48%</td>
+                      <td>Review actuals</td>
+                    </tr>
+                    <tr>
+                      <td>Amara Shah</td>
+                      <td>Unblock board-readiness legal dependency</td>
+                      <td>Raise portfolio operating velocity</td>
+                      <td>Board pack readiness</td>
+                      <td><span class="badge green">Knight</span></td>
+                      <td><span class="badge red">Carry requested</span></td>
+                      <td>41%</td>
+                      <td>Approve carry-forward</td>
+                    </tr>
+                    <tr>
+                      <td>Devon Lee</td>
+                      <td>Publish weekly portfolio signal dashboard</td>
+                      <td>Raise portfolio operating velocity</td>
+                      <td>Execution signals mapped weekly</td>
+                      <td><span class="badge green">Bishop</span></td>
+                      <td><span class="badge green">Ready</span></td>
+                      <td>88%</td>
+                      <td>Lock</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="split">
+              <div class="panel">
+                <div class="panel-header"><h3>Audit Trail</h3></div>
+                <div class="stack">
+                  <div class="record"><h4>09:12 - Lock request</h4><p>Devon submitted a Bishop-layer signal dashboard linked to operating velocity.</p></div>
+                  <div class="record"><h4>10:31 - Confidence drop</h4><p>Nikolay lowered hiring reconciliation confidence from 74% to 48%.</p></div>
+                  <div class="record"><h4>11:44 - Carry-forward request</h4><p>Amara attached legal blocker note and next-week target.</p></div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-header"><h3>Director Action</h3></div>
+                <div class="form-grid">
+                  <div class="field wide">
+                    <label for="director-record">Record</label>
+                    <select id="director-record">
+                      <option>Amara Shah - legal dependency</option>
+                      <option>Nikolay Ivanov - hiring reconciliation</option>
+                    </select>
+                  </div>
+                  <div class="field wide">
+                    <label for="director-note">Review Note</label>
+                    <textarea id="director-note">Carry forward accepted. Legal blocker should be escalated before Tuesday noon.</textarea>
+                  </div>
+                  <div class="actions">
+                    <button class="button" type="button">Commit Review</button>
+                    <button class="button secondary" type="button">Assign Follow-up</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="view" data-view="contributor" hidden>
+            <div class="split">
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>Contributor Ledger</h3>
+                    <p>A personal book of weekly work, actual value, and manager review.</p>
+                  </div>
+                  <span class="badge blue">3 records</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Commitment</th>
+                        <th>Outcome</th>
+                        <th>Status</th>
+                        <th>Planned Value</th>
+                        <th>Actual Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Portfolio signal dashboard</td>
+                        <td>Execution signals mapped weekly</td>
+                        <td><span class="badge blue">Locked</span></td>
+                        <td>Dashboard with owner, status, confidence, RCDO</td>
+                        <td>Pending</td>
+                      </tr>
+                      <tr>
+                        <td>Hiring commitment reconciliation</td>
+                        <td>Critical hiring plans visible</td>
+                        <td><span class="badge amber">Reconciling</span></td>
+                        <td>All overdue actions assigned</td>
+                        <td>18 of 21 reconciled</td>
+                      </tr>
+                      <tr>
+                        <td>Board readiness legal dependency</td>
+                        <td>Board pack readiness</td>
+                        <td><span class="badge red">Carry requested</span></td>
+                        <td>Legal dependency unblocked</td>
+                        <td>Blocked by external review</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header"><h3>Add or Reconcile</h3></div>
+                <div class="form-grid">
+                  <div class="field wide">
+                    <label for="commitment">Commitment</label>
+                    <input id="commitment" value="Publish weekly portfolio signal dashboard" />
+                  </div>
+                  <div class="field">
+                    <label for="layer">Chess Layer</label>
+                    <select id="layer">
+                      <option>Queen</option>
+                      <option>Rook</option>
+                      <option>Bishop</option>
+                      <option>Knight</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="rcdo">Supporting Outcome</label>
+                    <select id="rcdo">
+                      <option>Execution signals mapped weekly</option>
+                      <option>Critical hiring plans visible</option>
+                    </select>
+                  </div>
+                  <div class="field wide">
+                    <label for="value">Planned Value</label>
+                    <textarea id="value">Dashboard gives Director a sortable ledger for weekly review.</textarea>
+                  </div>
+                  <div class="actions">
+                    <button class="button" type="button">Save Record</button>
+                    <button class="button secondary" type="button">Send for Lock</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="bottom-row" aria-label="Technical proof and stories">
+            <article class="panel">
+              <h3>Technical Proof</h3>
+              <p>Best match for Spring Data Pageable, manager views up to 2000 records, audit events, and transition history.</p>
+            </article>
+            <article class="panel">
+              <h3>Demo Story</h3>
+              <p>A Director spots 2 unlinked commitments and 7 low-confidence records before lock, preventing Friday misalignment.</p>
+            </article>
+            <article class="panel">
+              <h3>Why This Direction</h3>
+              <p>Most credible enterprise path. Tradeoff: it is efficient and serious, but less narrative than the timeline version.</p>
+            </article>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const buttons = document.querySelectorAll("[data-view-target]");
+      const views = document.querySelectorAll("[data-view]");
+
+      function setView(target) {
+        buttons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.viewTarget === target));
+        });
+        views.forEach((view) => {
+          view.hidden = view.dataset.view !== target;
+        });
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => setView(button.dataset.viewTarget));
+      });
+    </script>
+  </body>
+</html>
