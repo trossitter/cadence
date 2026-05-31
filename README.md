@@ -4,6 +4,8 @@ Cadence is a weekly execution-planning module intended to replace the current 15
 
 This repo is intentionally structured like the production target: a Vite Module Federation remote plus a Spring Boot backend. 
 
+Demo video: https://www.loom.com/share/b6b0655980964abcb4bee944bf920a27
+
 ## Status
 
 What is real:
@@ -33,8 +35,8 @@ What is not real yet:
 - Outlook/Microsoft Graph integration is not implemented.
 - Manager dashboard pagination has backend shape, but not the final production UX for 175+ people or 2000 records.
 - Tests use H2 for the Spring smoke path, not Testcontainers PostgreSQL.
-- The CI workflow has not been proven green on GitHub yet.
-- No demo video exists yet.
+  
+
 
 ## Architecture
 
@@ -174,11 +176,9 @@ Current placeholders include:
 
 ## Open Decisions
 
-- Confirm Playwright over Cypress/Cucumber with ST6.
 - Clarify Microsoft Graph scope: calendar sync, email notifications, or both.
-- Get PA host Module Federation shared dependency versions.
 - Get ST6 Auth0 tenant/client configuration.
-- Decide whether backend integration tests should use Testcontainers PostgreSQL before demo.
+- Determine if backend integration tests should use Testcontainers PostgreSQL before demo.
 
 ## AI Usage
 
