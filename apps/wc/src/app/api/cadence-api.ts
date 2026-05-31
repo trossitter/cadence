@@ -2,10 +2,12 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 import type { RootState } from '../store';
 import type {
+  ManagerReviewUpdate,
   ManagerCommitmentPage,
   ReconciliationUpdate,
   WeeklyCommitment,
   WeeklyCommitmentDraft,
+  WeeklyCommitmentUpdate,
   WeeklyCommitmentWeek,
 } from '../types';
 
@@ -48,9 +50,42 @@ export const cadenceApi = createApi({
       }),
       invalidatesTags: [{ type: 'WeeklyCommitment', id: 'CURRENT' }],
     }),
+    updateCommitment: builder.mutation<WeeklyCommitment, WeeklyCommitmentUpdate>({
+      query: ({ commitmentId, ...body }) => ({
+        url: `/weekly-commitments/${commitmentId}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { commitmentId }) => [
+        { type: 'WeeklyCommitment', id: commitmentId },
+        { type: 'WeeklyCommitment', id: 'CURRENT' },
+        { type: 'ManagerDashboard', id: 'TEAM' },
+      ],
+    }),
+    lockCurrentWeek: builder.mutation<WeeklyCommitmentWeek, void>({
+      query: () => ({
+        url: '/weekly-commitments/current/lock',
+        method: 'POST',
+      }),
+      invalidatesTags: [
+        { type: 'WeeklyCommitment', id: 'CURRENT' },
+        { type: 'ManagerDashboard', id: 'TEAM' },
+      ],
+    }),
     updateReconciliation: builder.mutation<WeeklyCommitment, ReconciliationUpdate>({
       query: ({ commitmentId, ...body }) => ({
         url: `/weekly-commitments/${commitmentId}/reconciliation`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { commitmentId }) => [
+        { type: 'WeeklyCommitment', id: commitmentId },
+        { type: 'ManagerDashboard', id: 'TEAM' },
+      ],
+    }),
+    reviewCommitment: builder.mutation<WeeklyCommitment, ManagerReviewUpdate>({
+      query: ({ commitmentId, ...body }) => ({
+        url: `/manager-dashboard/commitments/${commitmentId}/review`,
         method: 'PUT',
         body,
       }),
@@ -73,5 +108,8 @@ export const {
   useCreateCommitmentMutation,
   useGetCurrentWeekQuery,
   useGetManagerDashboardQuery,
+  useLockCurrentWeekMutation,
+  useReviewCommitmentMutation,
+  useUpdateCommitmentMutation,
   useUpdateReconciliationMutation,
 } = cadenceApi;

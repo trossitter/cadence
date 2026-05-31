@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 import lombok.Builder;
@@ -42,9 +43,33 @@ public class WeeklyCommitment extends AbstractAuditingEntity {
   @Column(name = "actual_value")
   private String actualValue;
 
+  @Column(name = "proof")
+  private String proof;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private CommitmentStatus status;
+
+  @Column(name = "manager_subject")
+  private String managerSubject;
+
+  @Column(name = "manager_name")
+  private String managerName;
+
+  @Column(name = "review_note")
+  private String reviewNote;
+
+  @Column(name = "locked_at")
+  private Instant lockedAt;
+
+  @Column(name = "reviewed_at")
+  private Instant reviewedAt;
+
+  @Column(name = "reconciled_at")
+  private Instant reconciledAt;
+
+  @Column(name = "carried_forward_from_id")
+  private UUID carriedForwardFromId;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "chess_layer", nullable = false)
@@ -70,7 +95,15 @@ public class WeeklyCommitment extends AbstractAuditingEntity {
       String title,
       String plannedValue,
       String actualValue,
+      String proof,
       CommitmentStatus status,
+      String managerSubject,
+      String managerName,
+      String reviewNote,
+      Instant lockedAt,
+      Instant reviewedAt,
+      Instant reconciledAt,
+      UUID carriedForwardFromId,
       ChessLayer chessLayer,
       LocalDate weekStart,
       LocalDate dueDate,
@@ -82,7 +115,15 @@ public class WeeklyCommitment extends AbstractAuditingEntity {
     this.title = title;
     this.plannedValue = plannedValue;
     this.actualValue = actualValue;
+    this.proof = proof;
     this.status = status;
+    this.managerSubject = managerSubject;
+    this.managerName = managerName;
+    this.reviewNote = reviewNote;
+    this.lockedAt = lockedAt;
+    this.reviewedAt = reviewedAt;
+    this.reconciledAt = reconciledAt;
+    this.carriedForwardFromId = carriedForwardFromId;
     this.chessLayer = chessLayer;
     this.weekStart = weekStart;
     this.dueDate = dueDate;

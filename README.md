@@ -13,18 +13,23 @@ What is real:
 - The frontend app exists at `apps/wc`.
 - It builds as a Vite 5 Module Federation remote and emits `remoteEntry.js`.
 - It uses React 18, Redux Toolkit, RTK Query, Tailwind, and Flowbite React.
-- The UI shows current weekly commitments, RCDO links, lifecycle status, chess layer, and a small add-commitment form.
+- The shipped React UI has a Contributor/Director workspace toggle, a current-week commitment table, RCDO links, lifecycle status, chess layer, contributor create/reconcile forms, and director roll-up/review surfaces.
+- Static render options show alternate Director/Contributor demo directions, including a working view toggle in plain HTML.
 - The backend exists at `backend`.
 - It uses Spring Boot 3.3, Java 21, Spring Data JPA, Flyway, PostgreSQL, Auth0 resource-server wiring, Spotless, SpotBugs, and JaCoCo.
-- There is an initial RCDO and weekly-commitment schema with Flyway seed data.
-- Backend smoke and controller tests pass.
+- There is an initial RCDO and weekly-commitment schema with Flyway seed data plus workflow metadata columns.
+- The backend has a `WeeklyCommitmentWorkflow` service for create, update, delete, lock, review, reconciliation, transition, and carry-forward behavior.
+- Backend smoke, controller, and workflow tests exist.
 - Frontend unit, build, typecheck, and Chromium E2E checks pass.
+- Chromium E2E now proves the real Contributor/Director alpha workflow path with mocked API responses and the static Director/Contributor demo toggle.
 - A plain GitHub Actions workflow exists for frontend and backend checks.
 
 What is not real yet:
 
-- The full weekly lifecycle state machine is not implemented. The enum exists, but transitions are not enforced.
-- CRUD is incomplete. Create and reconciliation are sketched; update/delete/list-by-user flows are not complete.
+- The Director/Contributor toggle is local UI state, not permission-backed role enforcement from Auth0 or the PA host.
+- The backend lifecycle rules are only partially proven. There is a commitment-level workflow service, but no week-level lock endpoint, separate transition audit history, or frontend lifecycle workflow.
+- CRUD is still incomplete from a product perspective. Backend update/delete exist, but list-by-user, production validation UX, and frontend reconciliation/review flows are not complete.
+- Some newer frontend API hooks and types still need contract alignment with the current backend workflow endpoints and statuses; alpha fallback writes can make the UI look more complete than the backend path currently is.
 - Auth0 is wired structurally but not integrated with a real ST6 tenant.
 - The Module Federation remote has not been tested inside the PA host app.
 - Outlook/Microsoft Graph integration is not implemented.
@@ -46,6 +51,12 @@ cadence/
 ```
 
 The deeper architecture and demo proof narrative lives in `docs/ARCHITECTURE.md`.
+
+The brutal PRD coverage matrix lives in `docs/PRD_COVERAGE.md`. Short version:
+
+- Covered: micro-frontend remote shape, RCDO-linked commitment display, add-commitment API path, Spring Boot/Flyway/JPA scaffold, commitment-level workflow service, pageable manager endpoint, Auth0 resource-server structure, and local automated checks.
+- Partially covered: Director/Contributor workflow, lifecycle states, manager review, reconciliation, carry-forward, and demo storytelling. These exist as alpha React surfaces, backend workflow, architecture, static renders, API hooks, or simple endpoints, not as a finished operating workflow.
+- Not covered: PA host integration, real ST6 Auth0 tenant, Outlook/Microsoft Graph, week-level lock workflow, separate review/transition audit history, production scale proof, and demo video.
 
 Static render directions for the Director/Contributor split live in `docs/render-options`:
 
@@ -146,6 +157,12 @@ Verified locally on May 28, 2026:
 - `yarn e2e`
 - `./mvnw test`
 - `./mvnw verify spotless:check spotbugs:check`
+
+Verified locally on May 31, 2026:
+
+- `yarn e2e`
+
+Backend note: `./mvnw test` was not completed in the May 31 pass because the default shell could not locate a Java runtime. Use the Java 21 setup above before rerunning backend verification.
 
 ## Environment
 

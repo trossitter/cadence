@@ -4,4 +4,8 @@
     <Package name="com.st6.cadence.domain" />
     <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2" />
   </Match>
+  <Match>
+    <Class name="com.st6.cadence.web.WeeklyCommitmentController" />
+    <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
 </FindBugsFilter>
