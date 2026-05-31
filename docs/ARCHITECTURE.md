@@ -1,173 +1,151 @@
 # Cadence Architecture
 
-Cadence is a weekly execution system for ST6 Partners. The product replaces disconnected 15Five-style weekly plans with a workflow where commitments, manager review, reconciliation, and carry-forward decisions are all tied to the RCDO hierarchy.
+Cadence is a weekly execution system. Its job is to make the connection between weekly work and strategic intent impossible to miss.
 
-The important idea is simple: a weekly commitment is not accepted unless it points to a Supporting Outcome. That makes weekly execution visible at the same level where strategy is already managed.
+Every commitment must point to a Supporting Outcome in the RCDO hierarchy:
 
-## Target Product Shape
+`Rally Cry -> Defining Objective -> Supporting Outcome -> Weekly Commitment`
 
-Cadence has two primary views.
+That is the core architectural decision. Everything else exists to support that constraint with a usable workflow.
 
-- Director view: team alignment, risk triage, weekly state controls, manager review, and RCDO coverage.
-- Contributor view: personal weekly commitments, RCDO-linked creation, execution notes, reconciliation, and carry-forward requests.
+## Product Intent
 
-Both views use the same data model. The difference is permission, scope, and default workflow.
+Cadence replaces loose 15Five-style planning with a guided weekly loop:
 
-Current repository reality: the React remote now has a local Contributor/Director workspace toggle with alpha planning, reconciliation, roll-up, and review surfaces. It is still not permission-backed by Auth0 or the PA host, and several workflow paths use local fallback behavior when remote endpoints are unavailable.
+1. Contributor chooses the strategic outcome.
+2. Contributor shapes the weekly commitment.
+3. Director reviews alignment and risk.
+4. Work is locked for the week.
+5. Contributor reconciles planned value against actual value.
+6. Director accepts, requests revision, or carries valuable unfinished work forward.
 
-## Current Repository State
+The UX should feel guided and immediate. The user should not have to decode the system. The best mental model is a configuration flow with instant feedback: as the user chooses an outcome, layer, owner, and value, Cadence should show what that decision does to the week.
 
-The repository currently proves the following pieces.
+## Where It Fits
 
-- React 18 micro-frontend remote under `apps/wc`.
-- Vite Module Federation remote named `cadence`, exposing `./CadenceApp`.
-- RTK Query API layer for current week, create/update commitment, lock, reconciliation, review, and manager dashboard calls.
-- React UI for current commitments, RCDO links, lifecycle status, chess layer, confidence, Contributor create/reconcile, and Director roll-up/review.
-- Static Director/Contributor render options with working view toggles.
-- Spring Boot 3.3 backend under `backend`.
-- PostgreSQL/Flyway schema for RCDO hierarchy, weekly commitments, and workflow metadata.
-- `WeeklyCommitmentWorkflow` service for commitment-level lifecycle rules and carry-forward creation.
-- Auth0 resource-server shape on the backend.
-- Audited JPA entities.
-- Unit, E2E, backend, coverage, Spotless, and SpotBugs checks.
+Cadence is designed to mount inside an existing PA host app.
 
-The repository does not yet prove the whole product workflow. The largest missing slice is real end-to-end weekly operations: create, assign, lock, reconcile, review, carry forward, and explain the alignment impact inside the production React remote with backend-enforced rules.
-
-## Target System
+- The host owns app shell, navigation, route mounting, and authenticated session.
+- Cadence owns weekly planning, RCDO-linked commitments, lifecycle actions, and manager review.
+- The backend owns lifecycle validity and persistence.
 
 ```mermaid
 flowchart LR
   subgraph Host["PA Host App"]
-    Shell["Existing application shell"]
-    Auth["Auth0 session"]
+    Shell["Shell + navigation"]
+    Session["Auth0 session"]
   end
 
-  subgraph Remote["Cadence MFE"]
-    Toggle["Director / Contributor view switch"]
-    Planner["Weekly planning workspace"]
-    Review["Manager review dashboard"]
-    ApiClient["RTK Query API client"]
+  subgraph Cadence["Cadence Remote"]
+    Mode["Contributor / Director mode"]
+    Guide["Guided workflow UI"]
+    ApiState["RTK Query API state"]
   end
 
   subgraph Api["Cadence API"]
     Controller["WeeklyCommitmentController"]
-    Workflow["Lifecycle service"]
-    Policy["Authorization policy"]
+    Workflow["WeeklyCommitmentWorkflow"]
     Repo["Spring Data repositories"]
   end
 
   subgraph Data["PostgreSQL"]
-    RCDO["Rally Cry / Defining Objective / Supporting Outcome"]
+    RCDO["RCDO hierarchy"]
     Commitments["Weekly commitments"]
-    Reviews["Review and reconciliation events"]
+    WorkflowFields["Status, review, proof, carry-forward metadata"]
   end
 
-  Shell --> Remote
-  Auth --> ApiClient
-  Planner --> ApiClient
-  Review --> ApiClient
-  ApiClient --> Controller
-  Controller --> Policy
+  Shell --> Cadence
+  Session --> Cadence
+  Mode --> Guide
+  Guide --> ApiState
+  ApiState --> Controller
   Controller --> Workflow
   Workflow --> Repo
   Repo --> Data
 ```
 
-## Weekly Lifecycle
+## Current Implementation
 
-The lifecycle should be enforced by backend transition rules, not only by frontend button visibility.
+### Frontend
+
+- React 18 app in `apps/wc`.
+- Vite Module Federation remote named `cadence`.
+- Exposes `./CadenceApp`.
+- RTK Query owns all API calls.
+- Tailwind and Flowbite provide the current UI system.
+- Contributor/Director mode is local UI state.
+- Contributor surface includes create/edit fields and reconciliation.
+- Director surface includes team roll-up, lock action, and review decisions.
+- Fixture fallback keeps the alpha usable when the backend is unavailable.
+
+### Backend
+
+- Spring Boot 3.3, Java 21.
+- PostgreSQL with Flyway migrations.
+- JPA entities extend `AbstractAuditingEntity`.
+- `WeeklyCommitmentWorkflow` owns business rules.
+- `WeeklyCommitmentController` exposes the HTTP API.
+- Auth0 resource-server wiring exists, with local permit-all mode for demos.
+- JaCoCo, Spotless, and SpotBugs are configured and passing.
+
+### Data
+
+Current persisted model:
+
+- `rally_cries`
+- `defining_objectives`
+- `supporting_outcomes`
+- `weekly_commitments`
+
+`weekly_commitments` stores:
+
+- owner identity and display name
+- title and planned value
+- actual value and proof
+- status
+- chess layer
+- week start and due date
+- confidence
+- manager identity and review note
+- lock, review, and reconciliation timestamps
+- carry-forward source link
+
+This is enough for a credible alpha. The production version should split review and transition history into append-only event records.
+
+## Lifecycle
+
+The backend enforces commitment-level lifecycle transitions. The current model adds `APPROVED` and `NEEDS_REVISION` as explicit manager review states so Director review is more than a comment.
 
 ```mermaid
 stateDiagram-v2
   [*] --> DRAFT
-  DRAFT --> LOCKED: contributor submits / director locks
-  LOCKED --> RECONCILING: week closes
-  RECONCILING --> RECONCILED: actual value accepted
-  RECONCILING --> CARRIED_FORWARD: still valuable, not complete
-  CARRIED_FORWARD --> DRAFT: copied into next planning week
+  DRAFT --> LOCKED
+  LOCKED --> APPROVED
+  LOCKED --> NEEDS_REVISION
+  NEEDS_REVISION --> DRAFT
+  NEEDS_REVISION --> LOCKED
+  APPROVED --> RECONCILING
+  APPROVED --> RECONCILED
+  APPROVED --> CARRIED_FORWARD
+  RECONCILING --> RECONCILED
+  RECONCILING --> CARRIED_FORWARD
   RECONCILED --> [*]
+  CARRIED_FORWARD --> [*]
 ```
 
-### State Responsibilities
+State responsibilities:
 
-- `DRAFT`: contributor can create, edit, delete, and link commitments.
-- `LOCKED`: commitment becomes the weekly contract; edits require manager override or a new note.
-- `RECONCILING`: contributor records actual value, completion state, blockers, and carry-forward request.
-- `RECONCILED`: manager accepts actuals and closes the record.
-- `CARRIED_FORWARD`: unfinished work is intentionally moved into the next week with context.
-
-## Domain Model
-
-Core entities:
-
-- `RallyCry`: top-level strategic focus.
-- `DefiningObjective`: objective under a Rally Cry.
-- `SupportingOutcome`: concrete outcome under a Defining Objective.
-- `WeeklyCommitment`: the unit of weekly work.
-- `ReviewEvent`: proposed next entity for manager comments, approvals, overrides, and audit history.
-- `WorkflowTransition`: proposed next entity for explicit lifecycle audit.
-
-Key `WeeklyCommitment` fields:
-
-- `ownerUserId`
-- `ownerName`
-- `managerUserId`
-- `title`
-- `plannedValue`
-- `actualValue`
-- `status`
-- `chessLayer`
-- `supportingOutcomeId`
-- `dueDate`
-- `confidence`
-- `blockerReason`
-- `carryForwardReason`
-
-## View Contracts
-
-### Director View
-
-The Director view should answer these questions quickly.
-
-- Which commitments are linked to the current Rally Cry?
-- Which outcomes are undercovered or overcommitted?
-- Which people are blocked?
-- Which work is high leverage but low confidence?
-- Which reconciliation records need review?
-- What should be carried forward, canceled, or escalated?
-
-Primary interactions:
-
-- Lock team week.
-- Review individual plans.
-- Reassign or request clarification.
-- Approve reconciliation.
-- Carry forward work into next week.
-- Filter by RCDO, person, chess layer, status, and confidence.
-
-### Contributor View
-
-The Contributor view should make planning fast but disciplined.
-
-- Create a weekly commitment.
-- Pick the Supporting Outcome from the hierarchy.
-- Choose chess layer and expected value.
-- Lock the plan.
-- Reconcile actual value at week end.
-- Request carry-forward with reason.
-
-Primary interactions:
-
-- Add commitment.
-- Edit draft.
-- Attach RCDO link.
-- Submit weekly plan.
-- Record actual outcome.
-- Explain blockers.
+- `DRAFT`: contributor can create, edit, delete, and link to RCDO.
+- `LOCKED`: weekly intent is frozen for Director review.
+- `APPROVED`: Director accepts the commitment for execution.
+- `NEEDS_REVISION`: Director asks contributor to adjust the plan.
+- `RECONCILING`: contributor records actual value.
+- `RECONCILED`: commitment is closed with actual value.
+- `CARRIED_FORWARD`: original is closed and a next-week draft is created with the same RCDO link.
 
 ## API Surface
 
-Current endpoints:
+Implemented endpoints:
 
 - `GET /api/weekly-commitments/current`
 - `GET /api/weekly-commitments`
@@ -176,8 +154,10 @@ Current endpoints:
 - `PUT /api/weekly-commitments/{id}`
 - `DELETE /api/weekly-commitments/{id}`
 - `POST /api/weekly-commitments/{id}/lock`
+- `POST /api/weekly-commitments/current/lock`
 - `POST /api/weekly-commitments/{id}/transition`
 - `POST /api/weekly-commitments/{id}/review`
+- `PUT /api/manager-dashboard/commitments/{id}/review`
 - `POST /api/weekly-commitments/{id}/reconciliation/start`
 - `PUT /api/weekly-commitments/{id}/reconciliation`
 - `POST /api/weekly-commitments/{id}/carry-forward`
@@ -186,212 +166,118 @@ Current endpoints:
 Recommended next endpoints:
 
 - `GET /api/rcdo/tree`
-- `POST /api/weeks/{weekId}/lock` or equivalent week-level lock endpoint.
-- Explicit review/transition event history endpoint once audit moves beyond row metadata.
-- Frontend API hook cleanup so lock/review paths and status types line up with the current backend controller.
+- `GET /api/weeks/current/summary`
+- `POST /api/weeks/{weekId}/lock`
+- `GET /api/weekly-commitments/{id}/events`
 
-Recommended transition request:
+The next API step is week-level orchestration. Current lock behavior is useful for alpha testing, but a production weekly module should treat the week as an aggregate with summary, lock, close, and review windows.
 
-```json
-{
-  "targetStatus": "RECONCILED",
-  "actualValue": "Partner onboarding checklist adopted by 4 portfolio companies",
-  "reviewNote": "Accepted. Strong signal for repeatable operating cadence."
-}
-```
+## Frontend State Model
 
-## Frontend Architecture
+RTK Query is the API boundary. It owns:
 
-The production frontend should keep the micro-frontend boundary small.
+- current week
+- manager dashboard page
+- create commitment
+- update commitment
+- lock week
+- update reconciliation
+- review commitment
 
-- Remote app owns Cadence routes and state.
-- Host app owns shell, navigation, and authenticated session.
-- RTK Query owns server cache and invalidation.
-- Component state owns only local form state and table filters.
-- View mode is a first-class UI state: `director` or `contributor`.
+React component state owns:
 
-Recommended component split:
+- current visible mode
+- local form values
+- local reconciliation drafts
+- local review drafts
+- alpha fallback notices
 
-- `CadenceApp`
-- `ViewModeToggle`
-- `DirectorDashboard`
-- `ContributorWorkspace`
-- `CommitmentForm`
-- `RcdoPicker`
-- `LifecycleRail`
-- `CommitmentTable`
-- `ReconciliationPanel`
-- `ReviewQueue`
+This separation is intentional. Server state should not be copied into random component state except where the alpha needs optimistic or fallback behavior.
 
-Current delta: the main component split exists inside `apps/wc/src/app/app.tsx`, not as separately owned modules. Some newer RTK Query hooks describe intended lock/review behavior but still need path and status alignment with the current backend workflow.
+## UX Architecture
 
-## Backend Architecture
+The mounted-host experience should be action-led.
 
-The backend should separate transport, policy, and workflow.
+Contributor landing goal:
 
-- Controller: request/response mapping.
-- Service: lifecycle transitions and business rules.
-- Policy: user scope and permissions.
-- Repository: persistence.
-- Mapper: entity/DTO transformation.
+- Show one primary action: create or finish this week's commitment.
+- Present RCDO selection first because it is the strategic anchor.
+- Let the user shape the commitment with minimal fields.
+- Show immediate alignment feedback.
+- Reconciliation should ask for actual value and carry-forward only when relevant.
 
-The lifecycle service is the most important backend proof because it prevents the frontend from inventing invalid states.
+Director landing goal:
 
-Example rules:
+- Show what needs attention first.
+- Surface undercovered outcomes, blocked work, low confidence, and review queue.
+- Make lock, approve, request revision, and carry-forward decisions obvious.
+- Keep tables for scanning, not for primary creation.
 
-- A commitment cannot lock without a Supporting Outcome.
-- A locked commitment cannot be deleted by a contributor.
-- Reconciliation cannot happen before lock.
-- Carry-forward requires an actual value or blocker reason.
-- Director can override state with an audit event.
+The desired feeling is guided configuration with visible impact. The product should avoid unnecessary button presses, nested forms, or ambiguous status management.
 
-Current delta: `WeeklyCommitmentWorkflow` now owns commitment-level create, update, delete, lock, review, reconciliation, transition, and carry-forward rules. It is a real step toward backend enforcement, but authorization is still a lightweight actor helper, review/transition audit history is stored as row metadata instead of an event stream, and there is no week-level lock aggregate yet.
+## Technical Choices
 
-## Authorization Model
+- **Module Federation** keeps Cadence independently deployable while fitting into the PA host.
+- **React** supports a rich, responsive workflow without bringing in a heavier app framework.
+- **RTK Query** keeps fetch, loading, error, and invalidation behavior consistent.
+- **Spring Boot** provides a clear service/controller/repository split and enterprise-friendly test/tooling support.
+- **PostgreSQL** fits the relational execution model.
+- **Flyway** makes schema evolution explicit.
+- **JPA auditing** gives baseline created/updated metadata.
+- **JaCoCo, Spotless, SpotBugs** keep backend quality measurable.
+- **Playwright** proves the user workflow, not just isolated components.
 
-Auth0 should provide identity. Cadence should interpret identity into scope.
+## Proof
 
-- Contributor can read and write own draft commitments.
-- Contributor can reconcile own locked commitments.
-- Director can read team commitments.
-- Director can lock team week and approve reconciliation.
-- Admin can maintain RCDO hierarchy.
+Verified locally on May 31, 2026:
 
-The current backend has structural Auth0 wiring. A demo mode can use permit-all locally, but production must keep JWT validation and user-derived ownership.
+- `yarn typecheck`
+- `yarn test`
+- `yarn build`
+- `yarn e2e`
+- `./mvnw test`
+- `./mvnw verify spotless:check spotbugs:check`
 
-## Performance Model
+E2E covers:
 
-PRD targets:
+- real React Contributor/Director toggle
+- create commitment with mocked API response
+- reconciliation with carry-forward
+- Director review decision
+- static render-option toggle and reconciliation controls
 
-- Plan retrieval under 200ms.
-- Sub-second initial route render.
-- CDN-delivered remote bundle.
-- Pageable manager views up to 2000 records.
+Backend tests cover:
 
-Technical choices:
+- lifecycle service happy path
+- invalid transitions
+- manager-only review
+- carry-forward creation
+- revision update
+- controller endpoints and error mapping
+- JaCoCo 80% gate
 
-- RTK Query deduplicates requests and centralizes invalidation.
-- Pageable backend endpoints prevent large team payloads.
-- RCDO tree can be cached aggressively because it changes less often than commitments.
-- Manager dashboard should request summary metrics separately from paged records.
-- Remote bundle should split heavy dashboard and reconciliation surfaces.
+## Honest Gaps
 
-## PRD Coverage Snapshot
+These are product gaps, not speculative extras.
 
-| PRD area                 | Current status    | Honest read                                                                                                                                                                        |
-| ------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Module Federation remote | Covered           | Vite 5 remote exposes `./CadenceApp` and builds `remoteEntry.js`. It still needs PA host smoke testing.                                                                            |
-| RCDO-linked commitments  | Partially covered | Schema, seed data, DTOs, table display, and create payload require a Supporting Outcome. There is no full RCDO picker endpoint yet.                                                |
-| Director workflow        | Partially covered | React remote has a Director mode with team roll-up, lock button, and manager review surface. It is not permission-backed and the full backend contract is not aligned yet.         |
-| Contributor workflow     | Partially covered | React remote has a Contributor mode with create/edit fields and reconciliation queue. It still needs real RCDO picker data, production validation, and real-backend E2E proof.     |
-| Lifecycle enforcement    | Partially covered | `WeeklyCommitmentWorkflow` enforces commitment-level transitions and carry-forward creation. Week-level locking, event audit history, and frontend lifecycle UX are still missing. |
-| Manager dashboard scale  | Partially covered | Pageable backend endpoint exists. There is no production UX or realistic 2000-record performance proof.                                                                            |
-| Auth0 and authorization  | Scaffolded        | JWT resource-server wiring exists. ST6 tenant integration and user-scope policies are not proven.                                                                                  |
-| Outlook/Microsoft Graph  | Not covered       | No code path exists.                                                                                                                                                               |
-| Demo proof               | Partially covered | Docs, static renders, and focused Playwright coverage exist. No demo video or host-app walkthrough exists.                                                                         |
+- Host integration still needs proof in the artificial host.
+- Role selection must become permission-backed when host/Auth0 context is available.
+- The current UI is functional but still too table/form-led for the desired guided experience.
+- RCDO tree should come from the backend instead of static frontend options.
+- Week-level lock and close should become first-class aggregate operations.
+- Transition/review history should become append-only events.
+- Manager dashboard needs realistic scale testing.
+- Microsoft Graph/Outlook scope is still undefined and unimplemented.
 
-## Technical Proof Points
+## Next Build Slice
 
-Previously proven locally:
+Once the artificial host is mounted, the highest-value slice is UX polish around the real workflow:
 
-- Frontend tests pass.
-- Frontend typecheck passes.
-- Frontend build emits the remote.
-- Backend tests pass.
-- Maven verify, Spotless, SpotBugs, and JaCoCo run.
+1. Make the landing state show one obvious next action.
+2. Turn commitment creation into a guided, low-friction flow.
+3. Add immediate visual feedback for RCDO alignment and Director risk.
+4. Reduce table-first interactions for Contributor mode.
+5. Keep Director review dense but prioritize attention and decisions.
+6. Wire the guided actions to the existing backend lifecycle endpoints.
 
-Current May 31 proof:
-
-- Chromium E2E passes and now covers the real Contributor/Director toggle plus create, reconciliation, and manager review paths with mocked API responses.
-- Chromium E2E also covers the static Director/Contributor timeline toggle and contributor reconciliation form visibility.
-
-Backend note: `./mvnw test` was not completed in this pass because the default shell could not locate a Java runtime. Rerun with the documented Java 21 environment before claiming current backend proof.
-
-Commands:
-
-```bash
-yarn test
-yarn typecheck
-yarn build
-yarn e2e
-
-cd backend
-./mvnw test
-./mvnw verify spotless:check spotbugs:check
-```
-
-Proof still needed:
-
-- Permission-backed Director/Contributor flow inside `apps/wc`.
-- Browser proof through the full create/edit/lock/reconcile/review loop against the real backend.
-- Lifecycle transition tests around every valid and invalid state change in `WeeklyCommitmentWorkflow`.
-- Backend pagination test with realistic manager data volume.
-- Auth0 tenant integration or a documented local substitute.
-- Host app smoke test if ST6 provides the host shell.
-
-## Demo Stories
-
-These are manufactured but plausible stories for showing business impact. In an interview or demo, describe them as target workflow stories backed by the current scaffold and static renders, not as fully shipped production behavior.
-
-### Story 1: Portfolio Operating Review
-
-Director Mira owns the Rally Cry "Raise portfolio operating velocity." On Monday, her team enters 42 commitments. Cadence shows that 36 are linked to the Rally Cry, 4 are linked to lower-priority hiring outcomes, and 2 are unlinked. Mira asks for clarification before lock, preventing a week of misaligned work.
-
-Business impact: alignment issues are caught before execution, not during Friday review.
-
-### Story 2: Hiring Bottleneck
-
-Contributor Nikolay creates a Queen-layer commitment to reconcile hiring commitments across portfolio companies. By Wednesday, confidence drops from 74% to 48% because two owners have not supplied status. The Director view surfaces it as high-leverage, low-confidence work, so Mira reassigns support and keeps the hiring plan moving.
-
-Business impact: manager intervention happens midweek while the outcome is still recoverable.
-
-### Story 3: Carry-Forward Discipline
-
-Contributor Amara misses a board-readiness commitment because legal review blocks a dependency. Cadence requires actual value and carry-forward reason. The Director accepts the carry-forward, links it to the same Supporting Outcome, and preserves the blocker note for next week.
-
-Business impact: unfinished work is not silently copied forward. It carries context, owner, and strategic reason.
-
-## Render Options
-
-Three static render directions are included under `docs/render-options`.
-
-- `option-1-operating-room.html`: dense operating dashboard for weekly triage.
-- `option-2-workflow-timeline.html`: lifecycle-first view that makes state progression obvious.
-- `option-3-executive-ledger.html`: table-led control surface for data-heavy review.
-
-Each option includes:
-
-- Director/Contributor toggle.
-- RCDO-linked commitments.
-- Lifecycle stages.
-- Manager review and contributor reconciliation surfaces.
-- Technical proof panel.
-- Demo stories with business impact.
-
-These render options are useful for demo storytelling and product direction. They are not wired to the React remote or backend API.
-
-## How to Explain Technical Prowess
-
-Lead with the architecture choices, then name the gaps before the interviewer has to ask.
-
-- Micro-frontend boundary: Cadence is packaged as a Vite Module Federation remote so ST6 can mount it inside the PA host without forcing a host rewrite.
-- Data contract: weekly commitments point at Supporting Outcomes, so product behavior is tied to the Rally Cry -> Defining Objective -> Supporting Outcome hierarchy instead of loose text updates.
-- Frontend state: RTK Query owns server cache, invalidation, and API boundaries; React component state stays limited to form and view concerns.
-- Backend shape: Spring Boot, Flyway, JPA auditing, pageable endpoints, `WeeklyCommitmentWorkflow`, and resource-server wiring give the prototype a production-shaped spine.
-- Risk control: the docs are explicit that frontend role split, week-level lifecycle controls, richer authorization policy, event audit history, host integration, and Graph integration remain unfinished.
-- Demo proof: show the current app for the real Contributor/Director alpha workflow, then show the static timeline as the strongest product-direction reference and explain which code slice would harden it into production.
-
-## Honest Product Gaps
-
-The current scaffold is technically credible, but it is not yet a finished weekly planning product.
-
-The next best build slice is:
-
-1. Harden the existing Contributor/Director React workflow behind permission-backed view scope.
-2. Add an RCDO tree picker backed by `GET /api/rcdo/tree`.
-3. Harden `WeeklyCommitmentWorkflow` with direct service tests for valid and invalid transitions.
-4. Add week-level lock behavior and separate transition/review audit history.
-5. Align Contributor reconciliation and Director review UI with the final backend contract.
-6. Add tests for lifecycle rules, authorization scope, manager dashboard behavior, and host-app mounting.
-
-That slice would turn the scaffold from "architecture proof" into "usable demo alpha."
+That work would make the demo feel like a product, not a checklist.
