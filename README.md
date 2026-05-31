@@ -21,7 +21,8 @@ The intended UX direction is guided and action-first. The user should know the n
 ## What Is Real
 
 - React 18 frontend under `apps/wc`.
-- Vite Module Federation remote named `cadence`, exposing `./CadenceApp`.
+- Vite Module Federation remote named `cadence`, exposing `./CadenceApp` and a self-contained `./CadenceRoot` (its own store + auth) for host mounting.
+- Demo host harness (`apps/host`) that mounts the `cadence` remote over Module Federation; see `docs/HOST_HARNESS.md`.
 - Contributor/Director workspace toggle in the React app.
 - Contributor create/edit form with owner, Supporting Outcome, chess layer, due date, and planned value.
 - Contributor reconciliation queue with actual value and carry-forward path.
@@ -38,7 +39,7 @@ The intended UX direction is guided and action-first. The user should know the n
 
 ## What Is Still Alpha
 
-- The mounted-host integration is not proven yet.
+- A demo host harness (`apps/host`) now mounts the remote, but host integration is not yet verified end-to-end or against the real PA host.
 - The Contributor/Director toggle is local UI state, not permission-backed by the PA host or Auth0.
 - The backend has commitment-level lifecycle enforcement, but not a full week aggregate with durable transition events.
 - RCDO selection uses seeded/demo options in the UI; there is no `GET /api/rcdo/tree` endpoint yet.

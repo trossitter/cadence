@@ -70,7 +70,7 @@ flowchart LR
 
 - React 18 app in `apps/wc`.
 - Vite Module Federation remote named `cadence`.
-- Exposes `./CadenceApp`.
+- Exposes `./CadenceApp` and a self-contained `./CadenceRoot` (own store + auth) for host mounting.
 - RTK Query owns all API calls.
 - Tailwind and Flowbite provide the current UI system.
 - Contributor/Director mode is local UI state.
@@ -260,7 +260,7 @@ Backend tests cover:
 
 These are product gaps, not speculative extras.
 
-- Host integration still needs proof in the artificial host.
+- A demo host harness (`apps/host`) mounts the remote; host integration still needs end-to-end proof, then proof against the real PA host.
 - Role selection must become permission-backed when host/Auth0 context is available.
 - The current UI is functional but still too table/form-led for the desired guided experience.
 - RCDO tree should come from the backend instead of static frontend options.
@@ -271,7 +271,7 @@ These are product gaps, not speculative extras.
 
 ## Next Build Slice
 
-Once the artificial host is mounted, the highest-value slice is UX polish around the real workflow:
+With the artificial host now mounted (`apps/host`), the highest-value slice is UX polish around the real workflow:
 
 1. Make the landing state show one obvious next action.
 2. Turn commitment creation into a guided, low-friction flow.
