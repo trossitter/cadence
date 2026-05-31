@@ -1,0 +1,109 @@
+/* Demo-host chrome only. Deliberately plain CSS and visually distinct from
+   Cadence, so the boundary between "host shell" and "federated remote" reads
+   clearly. Cadence brings its own Tailwind/Flowbite styling. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #0f172a;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.host-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.host-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1.25rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-bottom: 1px solid #1e293b;
+  font-size: 0.8rem;
+}
+
+.host-brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.host-brand-tag {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #1e293b;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.host-federation {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #94a3b8;
+}
+
+.host-federation code {
+  color: #cbd5e1;
+  font-size: 0.72rem;
+}
+
+.host-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.host-stage {
+  flex: 1;
+  background: #f8fafc;
+}
+
+.host-loading,
+.host-error {
+  padding: 2rem;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.host-error {
+  max-width: 42rem;
+  margin: 2rem auto;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 0.75rem;
+}
+
+.host-error h2 {
+  margin-top: 0;
+  color: #b91c1c;
+}
+
+.host-error code {
+  background: #f1f5f9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+}
+
+.host-error pre {
+  white-space: pre-wrap;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}

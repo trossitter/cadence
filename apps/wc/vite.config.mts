@@ -9,10 +9,12 @@ export default defineConfig(() => ({
   server: {
     port: 4200,
     host: 'localhost',
+    cors: true,
   },
   preview: {
     port: 4200,
     host: 'localhost',
+    cors: true,
   },
   plugins: [
     react(),
@@ -21,6 +23,7 @@ export default defineConfig(() => ({
       filename: 'remoteEntry.js',
       exposes: {
         './CadenceApp': './src/app/app.tsx',
+        './CadenceRoot': './src/app/cadence-root.tsx',
       },
       shared: ['react', 'react-dom', '@reduxjs/toolkit', 'react-redux'],
     }),
@@ -38,6 +41,14 @@ export default defineConfig(() => ({
     reportCompressedSize: true,
     commonjsOptions: {
       transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      output: {
+        // Stable CSS filename (no content hash) so a federation host can
+        // <link> the remote's compiled stylesheet by a known URL. Federation
+        // does not inject a remote's CSS into the host on its own.
+        assetFileNames: 'assets/[name][extname]',
+      },
     },
   },
   test: {

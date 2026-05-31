@@ -7,7 +7,10 @@
     "build": "nx build @org/wc",
     "test": "nx test @org/wc",
     "e2e": "nx e2e @org/wc-e2e",
-    "typecheck": "nx typecheck @org/wc"
+    "typecheck": "nx typecheck @org/wc",
+    "demo:remote": "nx build @org/wc && nx preview @org/wc",
+    "demo:host": "nx serve @org/host",
+    "demo:smoke": "node scripts/host-smoke.mjs"
   },
   "private": true,
   "dependencies": {
