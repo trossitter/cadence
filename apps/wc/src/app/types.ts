@@ -7,7 +7,15 @@ export type CommitmentStatus =
   | 'RECONCILED'
   | 'CARRIED_FORWARD';
 
-export type ChessLayer = 'KING' | 'QUEEN' | 'ROOK' | 'BISHOP' | 'KNIGHT' | 'PAWN';
+export type ChessLayer =
+  | 'KING'
+  | 'QUEEN'
+  | 'ROOK'
+  | 'BISHOP'
+  | 'KNIGHT'
+  | 'PAWN';
+
+export type CommitmentRisk = 'ON_TRACK' | 'AT_RISK' | 'BLOCKED';
 
 export interface RcdoLink {
   rallyCry: string;
@@ -26,8 +34,13 @@ export interface WeeklyCommitment {
   chessLayer: ChessLayer;
   rcdo: RcdoLink;
   dueDate: string;
-  confidence: number;
+  risk: CommitmentRisk;
   managerReview?: ManagerReview;
+  weeksCarried?: number;
+  originWeekStart?: string;
+  outcomeDeprioritized?: boolean;
+  outcomeStatusNote?: string;
+  auditEvents?: CommitmentAuditEvent[];
 }
 
 export interface WeeklyCommitmentDraft {
@@ -37,6 +50,7 @@ export interface WeeklyCommitmentDraft {
   supportingOutcomeId: string;
   chessLayer: ChessLayer;
   dueDate: string;
+  risk: CommitmentRisk;
 }
 
 export interface WeeklyCommitmentUpdate extends WeeklyCommitmentDraft {
@@ -49,12 +63,24 @@ export interface ReconciliationUpdate {
   carryForward: boolean;
 }
 
-export type ManagerReviewDecision = 'APPROVED' | 'NEEDS_OWNER_UPDATE' | 'ESCALATED';
+export type ManagerReviewDecision =
+  | 'APPROVED'
+  | 'NEEDS_OWNER_UPDATE'
+  | 'ESCALATED';
 
 export interface ManagerReview {
   decision: ManagerReviewDecision;
   note: string;
   reviewedAt: string;
+}
+
+export interface CommitmentAuditEvent {
+  id: string;
+  actorName: string;
+  fromStatus?: CommitmentStatus;
+  toStatus: CommitmentStatus;
+  changedFields: string;
+  occurredAt: string;
 }
 
 export interface ManagerReviewUpdate {

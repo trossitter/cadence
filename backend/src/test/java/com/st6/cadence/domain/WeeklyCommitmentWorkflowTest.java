@@ -8,6 +8,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.st6.cadence.repository.CommitmentAuditEventRepository;
 import com.st6.cadence.repository.SupportingOutcomeRepository;
 import com.st6.cadence.repository.WeeklyCommitmentRepository;
 import java.time.LocalDate;
@@ -33,14 +35,23 @@ class WeeklyCommitmentWorkflowTest {
 
   @Mock private SupportingOutcomeRepository supportingOutcomeRepository;
 
+  @Mock private CommitmentAuditEventRepository commitmentAuditEventRepository;
+
   private WeeklyCommitmentWorkflow workflow;
 
   @BeforeEach
   void setUp() {
     workflow =
-        new WeeklyCommitmentWorkflow(weeklyCommitmentRepository, supportingOutcomeRepository);
+        new WeeklyCommitmentWorkflow(
+            weeklyCommitmentRepository,
+            supportingOutcomeRepository,
+            commitmentAuditEventRepository,
+            new ObjectMapper());
     lenient()
         .when(weeklyCommitmentRepository.save(any(WeeklyCommitment.class)))
+        .thenAnswer((invocation) -> invocation.getArgument(0));
+    lenient()
+        .when(commitmentAuditEventRepository.save(any(CommitmentAuditEvent.class)))
         .thenAnswer((invocation) -> invocation.getArgument(0));
   }
 
@@ -53,6 +64,13 @@ class WeeklyCommitmentWorkflowTest {
     WeeklyCommitment locked = workflow.lock(contributor(), COMMITMENT_ID);
     assertThat(locked.getStatus()).isEqualTo(CommitmentStatus.LOCKED);
     assertThat(locked.getLockedAt()).isNotNull();
+
+    ArgumentCaptor<CommitmentAuditEvent> auditEvent =
+        ArgumentCaptor.forClass(CommitmentAuditEvent.class);
+    verify(commitmentAuditEventRepository).save(auditEvent.capture());
+    assertThat(auditEvent.getValue().getFromStatus()).isEqualTo(CommitmentStatus.DRAFT);
+    assertThat(auditEvent.getValue().getToStatus()).isEqualTo(CommitmentStatus.LOCKED);
+    assertThat(auditEvent.getValue().getChangedFieldsJson()).contains("\"status\"");
 
     WeeklyCommitment approved =
         workflow.review(director(), COMMITMENT_ID, true, "Approved for the week");
@@ -150,13 +168,13 @@ class WeeklyCommitmentWorkflowTest {
             "Updated pack ready for IC pre-read",
             null,
             null,
-            80,
+            CommitmentRisk.AT_RISK,
             null);
 
     assertThat(updated.getStatus()).isEqualTo(CommitmentStatus.DRAFT);
     assertThat(updated.getTitle()).isEqualTo("Revise Q2 operating partner cadence review");
     assertThat(updated.getPlannedValue()).isEqualTo("Updated pack ready for IC pre-read");
-    assertThat(updated.getConfidence()).isEqualTo(80);
+    assertThat(updated.getRisk()).isEqualTo(CommitmentRisk.AT_RISK);
     assertThat(updated.getSupportingOutcome().getId()).isEqualTo(SUPPORTING_OUTCOME_ID);
   }
 
@@ -173,13 +191,13 @@ class WeeklyCommitmentWorkflowTest {
             "Digest is sent before partner review",
             ChessLayer.ROOK,
             LocalDate.parse("2026-06-05"),
-            73,
+            CommitmentRisk.AT_RISK,
             "Avery Chen");
 
     assertThat(created.getStatus()).isEqualTo(CommitmentStatus.DRAFT);
     assertThat(created.getOwnerName()).isEqualTo("Avery Chen");
     assertThat(created.getOwnerSubject()).isEqualTo("auth0|st6-user");
-    assertThat(created.getConfidence()).isEqualTo(73);
+    assertThat(created.getRisk()).isEqualTo(CommitmentRisk.AT_RISK);
     assertThat(created.getSupportingOutcome().getId()).isEqualTo(SUPPORTING_OUTCOME_ID);
 
     assertThatThrownBy(
@@ -191,7 +209,7 @@ class WeeklyCommitmentWorkflowTest {
                     "Digest is sent before partner review",
                     ChessLayer.ROOK,
                     LocalDate.parse("2026-06-05"),
-                    50,
+                    CommitmentRisk.ON_TRACK,
                     "Avery Chen"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("title is required");
@@ -217,6 +235,44 @@ class WeeklyCommitmentWorkflowTest {
   }
 
   @Test
+  void signalsExposeCarryDepthOriginWeekAndAuditEvents() {
+    UUID originId = UUID.fromString("99999999-9999-4999-8999-999999999999");
+    UUID middleId = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    UUID currentId = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    WeeklyCommitment origin = commitment(CommitmentStatus.CARRIED_FORWARD);
+    origin.setId(originId);
+    origin.setWeekStart(LocalDate.parse("2026-05-18"));
+    WeeklyCommitment middle = commitment(CommitmentStatus.CARRIED_FORWARD);
+    middle.setId(middleId);
+    middle.setWeekStart(LocalDate.parse("2026-05-25"));
+    middle.setCarriedForwardFromId(originId);
+    WeeklyCommitment current = commitment(CommitmentStatus.DRAFT);
+    current.setId(currentId);
+    current.setWeekStart(LocalDate.parse("2026-06-01"));
+    current.setCarriedForwardFromId(middleId);
+    CommitmentAuditEvent event =
+        CommitmentAuditEvent.builder()
+            .commitment(current)
+            .actorSubject("auth0|st6-user")
+            .actorName("Mira Petrova")
+            .toStatus(CommitmentStatus.DRAFT)
+            .changedFieldsJson("{}")
+            .occurredAt(java.time.Instant.parse("2026-06-01T12:00:00Z"))
+            .build();
+
+    when(weeklyCommitmentRepository.findByIdWithRcdo(middleId)).thenReturn(Optional.of(middle));
+    when(weeklyCommitmentRepository.findByIdWithRcdo(originId)).thenReturn(Optional.of(origin));
+    when(commitmentAuditEventRepository.findByCommitmentIdOrderByOccurredAtAsc(currentId))
+        .thenReturn(java.util.List.of(event));
+
+    WeeklyCommitmentWorkflow.CommitmentSignals signals = workflow.signalsFor(current);
+
+    assertThat(signals.weeksCarried()).isEqualTo(2);
+    assertThat(signals.originWeekStart()).isEqualTo(LocalDate.parse("2026-05-18"));
+    assertThat(signals.auditEvents()).containsExactly(event);
+  }
+
+  @Test
   void deleteRequiresEditableOwnedCommitment() {
     when(weeklyCommitmentRepository.findByIdWithRcdo(COMMITMENT_ID))
         .thenReturn(Optional.of(commitment(CommitmentStatus.DRAFT)));
@@ -234,7 +290,7 @@ class WeeklyCommitmentWorkflowTest {
   }
 
   @Test
-  void rejectsUnauthorizedOwnerAndInvalidConfidence() {
+  void rejectsUnauthorizedOwner() {
     when(weeklyCommitmentRepository.findByIdWithRcdo(COMMITMENT_ID))
         .thenReturn(Optional.of(commitment(CommitmentStatus.DRAFT)));
 
@@ -248,25 +304,10 @@ class WeeklyCommitmentWorkflowTest {
                     "Updated value",
                     null,
                     null,
-                    50,
+                    CommitmentRisk.ON_TRACK,
                     null))
         .isInstanceOf(AccessDeniedException.class)
         .hasMessageContaining("Only the owner");
-
-    assertThatThrownBy(
-            () ->
-                workflow.update(
-                    contributor(),
-                    COMMITMENT_ID,
-                    null,
-                    "Updated",
-                    "Updated value",
-                    null,
-                    null,
-                    101,
-                    null))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("confidence");
   }
 
   @Test
@@ -307,7 +348,7 @@ class WeeklyCommitmentWorkflowTest {
         .chessLayer(ChessLayer.QUEEN)
         .weekStart(LocalDate.parse("2026-06-01"))
         .dueDate(LocalDate.parse("2026-06-05"))
-        .confidence(50)
+        .risk(CommitmentRisk.ON_TRACK)
         .build();
   }
 

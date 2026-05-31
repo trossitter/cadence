@@ -3,10 +3,13 @@ package com.st6.cadence.web;
 import com.st6.cadence.domain.CarryForwardResult;
 import com.st6.cadence.domain.ChessLayer;
 import com.st6.cadence.domain.CommitmentActor;
+import com.st6.cadence.domain.CommitmentAuditEvent;
+import com.st6.cadence.domain.CommitmentRisk;
 import com.st6.cadence.domain.CommitmentStatus;
 import com.st6.cadence.domain.InvalidCommitmentTransitionException;
 import com.st6.cadence.domain.WeeklyCommitment;
 import com.st6.cadence.domain.WeeklyCommitmentWorkflow;
+import com.st6.cadence.domain.WeeklyCommitmentWorkflow.CommitmentSignals;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -50,7 +53,7 @@ public class WeeklyCommitmentController {
   WeeklyCommitmentWeekResponse currentWeek() {
     LocalDate weekStart = LocalDate.now().with(DayOfWeek.MONDAY);
     Page<WeeklyCommitment> page = workflow.currentWeek(PageRequest.of(0, 200));
-    List<CommitmentResponse> commitments = page.map(CommitmentResponse::from).toList();
+    List<CommitmentResponse> commitments = page.map(this::response).toList();
 
     return new WeeklyCommitmentWeekResponse(weekStart, weekState(commitments), commitments);
   }
@@ -58,18 +61,18 @@ public class WeeklyCommitmentController {
   @GetMapping("/weekly-commitments")
   Page<CommitmentResponse> weeklyCommitments(
       @RequestParam(required = false) CommitmentStatus status, Pageable pageable) {
-    return workflow.managerCommitments(status, pageable).map(CommitmentResponse::from);
+    return workflow.managerCommitments(status, pageable).map(this::response);
   }
 
   @GetMapping("/weekly-commitments/{id}")
   CommitmentResponse get(@PathVariable UUID id) {
-    return CommitmentResponse.from(workflow.get(id));
+    return response(workflow.get(id));
   }
 
   @PostMapping("/weekly-commitments")
   CommitmentResponse create(
       @AuthenticationPrincipal Jwt jwt, @RequestBody CreateCommitmentRequest createRequest) {
-    return CommitmentResponse.from(
+    return response(
         workflow.create(
             actorFrom(jwt),
             createRequest.supportingOutcomeId(),
@@ -77,7 +80,7 @@ public class WeeklyCommitmentController {
             createRequest.plannedValue(),
             createRequest.chessLayer(),
             createRequest.dueDate(),
-            createRequest.confidence(),
+            createRequest.risk(),
             createRequest.ownerName()));
   }
 
@@ -86,7 +89,7 @@ public class WeeklyCommitmentController {
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
       @RequestBody UpdateCommitmentRequest updateRequest) {
-    return CommitmentResponse.from(
+    return response(
         workflow.update(
             actorFrom(jwt),
             id,
@@ -95,7 +98,7 @@ public class WeeklyCommitmentController {
             updateRequest.plannedValue(),
             updateRequest.chessLayer(),
             updateRequest.dueDate(),
-            updateRequest.confidence(),
+            updateRequest.risk(),
             updateRequest.ownerName()));
   }
 
@@ -107,7 +110,7 @@ public class WeeklyCommitmentController {
 
   @PostMapping("/weekly-commitments/{id}/lock")
   CommitmentResponse lock(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
-    return CommitmentResponse.from(workflow.lock(actorFrom(jwt), id));
+    return response(workflow.lock(actorFrom(jwt), id));
   }
 
   @PostMapping("/weekly-commitments/current/lock")
@@ -130,7 +133,7 @@ public class WeeklyCommitmentController {
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
       @RequestBody TransitionRequest transitionRequest) {
-    return CommitmentResponse.from(
+    return response(
         workflow.transition(
             actorFrom(jwt),
             id,
@@ -145,7 +148,7 @@ public class WeeklyCommitmentController {
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
       @RequestBody ManagerReviewRequest reviewRequest) {
-    return CommitmentResponse.from(
+    return response(
         workflow.review(actorFrom(jwt), id, reviewRequest.approved(), reviewRequest.reviewNote()));
   }
 
@@ -155,13 +158,12 @@ public class WeeklyCommitmentController {
       @PathVariable UUID id,
       @RequestBody ManagerDashboardReviewRequest reviewRequest) {
     boolean approved = reviewRequest.decision() == ManagerReviewDecision.APPROVED;
-    return CommitmentResponse.from(
-        workflow.review(actorFrom(jwt), id, approved, reviewRequest.note()));
+    return response(workflow.review(actorFrom(jwt), id, approved, reviewRequest.note()));
   }
 
   @PostMapping("/weekly-commitments/{id}/reconciliation/start")
   CommitmentResponse startReconciliation(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
-    return CommitmentResponse.from(workflow.startReconciliation(actorFrom(jwt), id));
+    return response(workflow.startReconciliation(actorFrom(jwt), id));
   }
 
   @PutMapping("/weekly-commitments/{id}/reconciliation")
@@ -177,9 +179,9 @@ public class WeeklyCommitmentController {
               reconciliationRequest.actualValue(),
               reconciliationRequest.proof(),
               reconciliationRequest.dueDate());
-      return CommitmentResponse.from(result.closedCommitment());
+      return response(result.closedCommitment());
     }
-    return CommitmentResponse.from(
+    return response(
         workflow.reconcile(
             actorFrom(jwt),
             id,
@@ -193,19 +195,21 @@ public class WeeklyCommitmentController {
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
       @RequestBody CarryForwardRequest carryForwardRequest) {
-    return CarryForwardResponse.from(
+    CarryForwardResult result =
         workflow.carryForward(
             actorFrom(jwt),
             id,
             carryForwardRequest.actualValue(),
             carryForwardRequest.proof(),
-            carryForwardRequest.dueDate()));
+            carryForwardRequest.dueDate());
+    return new CarryForwardResponse(
+        response(result.closedCommitment()), response(result.carriedForwardCommitment()));
   }
 
   @GetMapping("/manager-dashboard/commitments")
   Page<CommitmentResponse> managerCommitments(
       @RequestParam(required = false) CommitmentStatus status, Pageable pageable) {
-    return workflow.managerCommitments(status, pageable).map(CommitmentResponse::from);
+    return workflow.managerCommitments(status, pageable).map(this::response);
   }
 
   record WeeklyCommitmentWeekResponse(
@@ -220,7 +224,7 @@ public class WeeklyCommitmentController {
       UUID supportingOutcomeId,
       ChessLayer chessLayer,
       LocalDate dueDate,
-      Integer confidence,
+      CommitmentRisk risk,
       String ownerName) {}
 
   record UpdateCommitmentRequest(
@@ -229,7 +233,7 @@ public class WeeklyCommitmentController {
       UUID supportingOutcomeId,
       ChessLayer chessLayer,
       LocalDate dueDate,
-      Integer confidence,
+      CommitmentRisk risk,
       String ownerName) {}
 
   record TransitionRequest(
@@ -251,8 +255,11 @@ public class WeeklyCommitmentController {
       CommitmentResponse closedCommitment, CommitmentResponse carriedForwardCommitment) {
     static CarryForwardResponse from(CarryForwardResult result) {
       return new CarryForwardResponse(
-          CommitmentResponse.from(result.closedCommitment()),
-          CommitmentResponse.from(result.carriedForwardCommitment()));
+          CommitmentResponse.from(
+              result.closedCommitment(), CommitmentSignals.empty(result.closedCommitment())),
+          CommitmentResponse.from(
+              result.carriedForwardCommitment(),
+              CommitmentSignals.empty(result.carriedForwardCommitment())));
     }
   }
 
@@ -268,17 +275,23 @@ public class WeeklyCommitmentController {
       RcdoLink rcdo,
       LocalDate weekStart,
       LocalDate dueDate,
-      int confidence,
+      CommitmentRisk risk,
       String managerName,
       String reviewNote,
       Instant lockedAt,
       Instant reviewedAt,
       Instant reconciledAt,
-      UUID carriedForwardFromId) {
-    static CommitmentResponse from(WeeklyCommitment commitment) {
+      UUID carriedForwardFromId,
+      int weeksCarried,
+      LocalDate originWeekStart,
+      boolean outcomeDeprioritized,
+      String outcomeStatusNote,
+      List<CommitmentAuditEventResponse> auditEvents) {
+    static CommitmentResponse from(WeeklyCommitment commitment, CommitmentSignals signals) {
       var outcome = commitment.getSupportingOutcome();
       var objective = outcome.getDefiningObjective();
       var rallyCry = objective.getRallyCry();
+      String outcomeStatusNote = outcomeStatusNote(commitment, outcome, rallyCry);
 
       return new CommitmentResponse(
           commitment.getId(),
@@ -293,13 +306,65 @@ public class WeeklyCommitmentController {
               rallyCry.getTitle(), objective.getTitle(), outcome.getId(), outcome.getTitle()),
           commitment.getWeekStart(),
           commitment.getDueDate(),
-          commitment.getConfidence(),
+          commitment.getRisk(),
           commitment.getManagerName(),
           commitment.getReviewNote(),
           commitment.getLockedAt(),
           commitment.getReviewedAt(),
           commitment.getReconciledAt(),
-          commitment.getCarriedForwardFromId());
+          commitment.getCarriedForwardFromId(),
+          signals.weeksCarried(),
+          signals.originWeekStart(),
+          outcomeStatusNote != null,
+          outcomeStatusNote,
+          signals.auditEvents().stream().map(CommitmentAuditEventResponse::from).toList());
+    }
+
+    private static String outcomeStatusNote(
+        WeeklyCommitment commitment,
+        com.st6.cadence.domain.SupportingOutcome outcome,
+        com.st6.cadence.domain.RallyCry rallyCry) {
+      Instant reference =
+          commitment.getLockedAt() == null ? commitment.getCreatedAt() : commitment.getLockedAt();
+
+      if (reference == null) {
+        reference = Instant.EPOCH;
+      }
+
+      if (archivedAfterCommitmentReference(
+          outcome.isActive(), outcome.getArchivedAt(), reference)) {
+        return "Supporting outcome archived after commitment lock";
+      }
+
+      if (archivedAfterCommitmentReference(
+          rallyCry.isActive(), rallyCry.getArchivedAt(), reference)) {
+        return "Rally Cry archived after commitment lock";
+      }
+
+      return null;
+    }
+
+    private static boolean archivedAfterCommitmentReference(
+        boolean active, Instant archivedAt, Instant reference) {
+      return !active && archivedAt != null && archivedAt.isAfter(reference);
+    }
+  }
+
+  record CommitmentAuditEventResponse(
+      UUID id,
+      String actorName,
+      CommitmentStatus fromStatus,
+      CommitmentStatus toStatus,
+      String changedFields,
+      Instant occurredAt) {
+    static CommitmentAuditEventResponse from(CommitmentAuditEvent event) {
+      return new CommitmentAuditEventResponse(
+          event.getId(),
+          event.getActorName(),
+          event.getFromStatus(),
+          event.getToStatus(),
+          event.getChangedFieldsJson(),
+          event.getOccurredAt());
     }
   }
 
@@ -346,6 +411,10 @@ public class WeeklyCommitmentController {
         subject == null ? "local-demo-user" : subject,
         name == null ? subject : name,
         hasManagerRole(jwt));
+  }
+
+  private CommitmentResponse response(WeeklyCommitment commitment) {
+    return CommitmentResponse.from(commitment, workflow.signalsFor(commitment));
   }
 
   private boolean hasManagerRole(Jwt jwt) {

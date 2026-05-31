@@ -15,16 +15,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.st6.cadence.config.SecurityConfig;
 import com.st6.cadence.domain.ChessLayer;
+import com.st6.cadence.domain.CommitmentRisk;
 import com.st6.cadence.domain.CommitmentStatus;
 import com.st6.cadence.domain.DefiningObjective;
 import com.st6.cadence.domain.RallyCry;
 import com.st6.cadence.domain.SupportingOutcome;
 import com.st6.cadence.domain.WeeklyCommitment;
 import com.st6.cadence.domain.WeeklyCommitmentWorkflow;
+import com.st6.cadence.domain.WeeklyCommitmentWorkflow.CommitmentSignals;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -45,6 +49,12 @@ class WeeklyCommitmentControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockBean private WeeklyCommitmentWorkflow workflow;
+
+  @BeforeEach
+  void setUpSignals() {
+    when(workflow.signalsFor(any(WeeklyCommitment.class)))
+        .thenAnswer((invocation) -> CommitmentSignals.empty(invocation.getArgument(0)));
+  }
 
   @Test
   void currentWeekReturnsDraftLifecycleWithCommitmentsArray() throws Exception {
@@ -73,7 +83,7 @@ class WeeklyCommitmentControllerTest {
             .chessLayer(ChessLayer.QUEEN)
             .weekStart(LocalDate.parse("2026-06-01"))
             .dueDate(LocalDate.parse("2026-06-05"))
-            .confidence(50)
+            .risk(CommitmentRisk.ON_TRACK)
             .build();
 
     when(workflow.create(any(), any(), any(), any(), any(), any(), any(), any()))
@@ -102,8 +112,32 @@ class WeeklyCommitmentControllerTest {
         .andExpect(jsonPath("$.id").value(commitmentId.toString()))
         .andExpect(jsonPath("$.ownerName").value("Mira Petrova"))
         .andExpect(jsonPath("$.status").value("DRAFT"))
+        .andExpect(jsonPath("$.risk").value("ON_TRACK"))
         .andExpect(jsonPath("$.chessLayer").value(ChessLayer.QUEEN.name()))
+        .andExpect(jsonPath("$.weeksCarried").value(0))
+        .andExpect(jsonPath("$.originWeekStart").value("2026-06-01"))
+        .andExpect(jsonPath("$.outcomeDeprioritized").value(false))
+        .andExpect(jsonPath("$.auditEvents", hasSize(0)))
         .andExpect(jsonPath("$.rcdo.supportingOutcomeId").value(SUPPORTING_OUTCOME_ID.toString()));
+  }
+
+  @Test
+  void getFlagsCommitmentsPointingAtArchivedOutcomesAfterLock() throws Exception {
+    UUID commitmentId = UUID.fromString("33333333-3333-4333-8333-333333333333");
+    WeeklyCommitment commitment = commitment(CommitmentStatus.LOCKED);
+    commitment.setLockedAt(Instant.parse("2026-06-02T12:00:00Z"));
+    commitment.getSupportingOutcome().setActive(false);
+    commitment.getSupportingOutcome().setArchivedAt(Instant.parse("2026-06-03T12:00:00Z"));
+
+    when(workflow.get(commitmentId)).thenReturn(commitment);
+
+    mockMvc
+        .perform(get("/api/weekly-commitments/{id}", commitmentId).with(jwt()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.outcomeDeprioritized").value(true))
+        .andExpect(
+            jsonPath("$.outcomeStatusNote")
+                .value("Supporting outcome archived after commitment lock"));
   }
 
   @Test
@@ -124,7 +158,7 @@ class WeeklyCommitmentControllerTest {
             .chessLayer(ChessLayer.QUEEN)
             .weekStart(LocalDate.parse("2026-06-01"))
             .dueDate(LocalDate.parse("2026-06-05"))
-            .confidence(50)
+            .risk(CommitmentRisk.ON_TRACK)
             .build();
 
     when(workflow.review(any(), any(), anyBoolean(), any())).thenReturn(commitment);
@@ -188,7 +222,7 @@ class WeeklyCommitmentControllerTest {
                       "supportingOutcomeId": "11111111-1111-4111-8111-111111111111",
                       "chessLayer": "ROOK",
                       "dueDate": "2026-06-06",
-                      "confidence": 75,
+                      "risk": "AT_RISK",
                       "ownerName": "Avery Chen"
                     }
                     """))
@@ -345,7 +379,7 @@ class WeeklyCommitmentControllerTest {
         .chessLayer(ChessLayer.QUEEN)
         .weekStart(LocalDate.parse("2026-06-01"))
         .dueDate(LocalDate.parse("2026-06-05"))
-        .confidence(50)
+        .risk(CommitmentRisk.ON_TRACK)
         .build();
   }
 

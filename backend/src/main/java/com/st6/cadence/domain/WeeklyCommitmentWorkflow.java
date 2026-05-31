@@ -1,10 +1,17 @@
 package com.st6.cadence.domain;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.st6.cadence.repository.CommitmentAuditEventRepository;
 import com.st6.cadence.repository.SupportingOutcomeRepository;
 import com.st6.cadence.repository.WeeklyCommitmentRepository;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -17,12 +24,25 @@ import org.springframework.transaction.annotation.Transactional;
 public class WeeklyCommitmentWorkflow {
   private final WeeklyCommitmentRepository weeklyCommitmentRepository;
   private final SupportingOutcomeRepository supportingOutcomeRepository;
+  private final CommitmentAuditEventRepository commitmentAuditEventRepository;
+  private final ObjectMapper objectMapper;
 
   public WeeklyCommitmentWorkflow(
       WeeklyCommitmentRepository weeklyCommitmentRepository,
-      SupportingOutcomeRepository supportingOutcomeRepository) {
+      SupportingOutcomeRepository supportingOutcomeRepository,
+      CommitmentAuditEventRepository commitmentAuditEventRepository,
+      ObjectMapper objectMapper) {
     this.weeklyCommitmentRepository = weeklyCommitmentRepository;
     this.supportingOutcomeRepository = supportingOutcomeRepository;
+    this.commitmentAuditEventRepository = commitmentAuditEventRepository;
+    this.objectMapper = objectMapper;
+  }
+
+  public record CommitmentSignals(
+      int weeksCarried, LocalDate originWeekStart, List<CommitmentAuditEvent> auditEvents) {
+    public static CommitmentSignals empty(WeeklyCommitment commitment) {
+      return new CommitmentSignals(0, commitment.getWeekStart(), List.of());
+    }
   }
 
   @Transactional(readOnly = true)
@@ -44,6 +64,32 @@ public class WeeklyCommitmentWorkflow {
     return findCommitment(id);
   }
 
+  @Transactional(readOnly = true)
+  public CommitmentSignals signalsFor(WeeklyCommitment commitment) {
+    WeeklyCommitment ancestor = commitment;
+    int weeksCarried = 0;
+    LocalDate originWeekStart = commitment.getWeekStart();
+
+    while (ancestor.getCarriedForwardFromId() != null) {
+      ancestor =
+          weeklyCommitmentRepository
+              .findByIdWithRcdo(ancestor.getCarriedForwardFromId())
+              .orElse(null);
+
+      if (ancestor == null) {
+        break;
+      }
+
+      weeksCarried++;
+      originWeekStart = ancestor.getWeekStart();
+    }
+
+    return new CommitmentSignals(
+        weeksCarried,
+        originWeekStart,
+        commitmentAuditEventRepository.findByCommitmentIdOrderByOccurredAtAsc(commitment.getId()));
+  }
+
   @Transactional
   public WeeklyCommitment create(
       CommitmentActor actor,
@@ -52,7 +98,7 @@ public class WeeklyCommitmentWorkflow {
       String plannedValue,
       ChessLayer chessLayer,
       LocalDate dueDate,
-      Integer confidence,
+      CommitmentRisk risk,
       String ownerName) {
     SupportingOutcome outcome = findOutcome(supportingOutcomeId);
     String resolvedOwnerName = ownerName == null || ownerName.isBlank() ? actor.name() : ownerName;
@@ -68,10 +114,12 @@ public class WeeklyCommitmentWorkflow {
             .chessLayer(requireValue(chessLayer, "chessLayer"))
             .weekStart(currentWeekStart())
             .dueDate(requireValue(dueDate, "dueDate"))
-            .confidence(normalizeConfidence(confidence))
+            .risk(normalizeRisk(risk))
             .build();
 
-    return weeklyCommitmentRepository.save(commitment);
+    WeeklyCommitment savedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(actor, savedCommitment, null, CommitmentStatus.DRAFT, Map.of());
+    return savedCommitment;
   }
 
   @Transactional
@@ -83,36 +131,52 @@ public class WeeklyCommitmentWorkflow {
       String plannedValue,
       ChessLayer chessLayer,
       LocalDate dueDate,
-      Integer confidence,
+      CommitmentRisk risk,
       String ownerName) {
     WeeklyCommitment commitment = findCommitment(id);
     assertOwnerOrManager(actor, commitment);
     assertEditable(commitment);
+    CommitmentStatus fromStatus = commitment.getStatus();
+    Map<String, List<Object>> changedFields = new LinkedHashMap<>();
 
     if (supportingOutcomeId != null) {
+      addChange(
+          changedFields,
+          "supportingOutcomeId",
+          commitment.getSupportingOutcome().getId(),
+          supportingOutcomeId);
       commitment.setSupportingOutcome(findOutcome(supportingOutcomeId));
     }
     if (title != null) {
+      addChange(changedFields, "title", commitment.getTitle(), title);
       commitment.setTitle(requireText(title, "title"));
     }
     if (plannedValue != null) {
+      addChange(changedFields, "plannedValue", commitment.getPlannedValue(), plannedValue);
       commitment.setPlannedValue(requireText(plannedValue, "plannedValue"));
     }
     if (chessLayer != null) {
+      addChange(changedFields, "chessLayer", commitment.getChessLayer(), chessLayer);
       commitment.setChessLayer(chessLayer);
     }
     if (dueDate != null) {
+      addChange(changedFields, "dueDate", commitment.getDueDate(), dueDate);
       commitment.setDueDate(dueDate);
     }
-    if (confidence != null) {
-      commitment.setConfidence(normalizeConfidence(confidence));
+    if (risk != null) {
+      addChange(changedFields, "risk", commitment.getRisk(), risk);
+      commitment.setRisk(normalizeRisk(risk));
     }
     if (ownerName != null && !ownerName.isBlank()) {
+      addChange(changedFields, "ownerName", commitment.getOwnerName(), ownerName);
       commitment.setOwnerName(ownerName);
     }
     commitment.setStatus(CommitmentStatus.DRAFT);
+    addChange(changedFields, "status", fromStatus, CommitmentStatus.DRAFT);
 
-    return weeklyCommitmentRepository.save(commitment);
+    WeeklyCommitment savedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(actor, savedCommitment, fromStatus, savedCommitment.getStatus(), changedFields);
+    return savedCommitment;
   }
 
   @Transactional
@@ -128,10 +192,18 @@ public class WeeklyCommitmentWorkflow {
     WeeklyCommitment commitment = findCommitment(id);
     assertOwnerOrManager(actor, commitment);
     requireTransition(commitment, CommitmentStatus.LOCKED);
+    CommitmentStatus fromStatus = commitment.getStatus();
 
     commitment.setStatus(CommitmentStatus.LOCKED);
     commitment.setLockedAt(Instant.now());
-    return weeklyCommitmentRepository.save(commitment);
+    WeeklyCommitment savedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(
+        actor,
+        savedCommitment,
+        fromStatus,
+        CommitmentStatus.LOCKED,
+        statusChange(fromStatus, CommitmentStatus.LOCKED));
+    return savedCommitment;
   }
 
   @Transactional
@@ -144,13 +216,21 @@ public class WeeklyCommitmentWorkflow {
     WeeklyCommitment commitment = findCommitment(id);
     requireTransition(
         commitment, approved ? CommitmentStatus.APPROVED : CommitmentStatus.NEEDS_REVISION);
+    CommitmentStatus fromStatus = commitment.getStatus();
+    CommitmentStatus toStatus =
+        approved ? CommitmentStatus.APPROVED : CommitmentStatus.NEEDS_REVISION;
+    Map<String, List<Object>> changedFields = statusChange(fromStatus, toStatus);
+    addChange(changedFields, "managerName", commitment.getManagerName(), actor.name());
+    addChange(changedFields, "reviewNote", commitment.getReviewNote(), reviewNote);
 
-    commitment.setStatus(approved ? CommitmentStatus.APPROVED : CommitmentStatus.NEEDS_REVISION);
+    commitment.setStatus(toStatus);
     commitment.setManagerSubject(actor.subject());
     commitment.setManagerName(actor.name());
     commitment.setReviewNote(reviewNote);
     commitment.setReviewedAt(Instant.now());
-    return weeklyCommitmentRepository.save(commitment);
+    WeeklyCommitment savedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(actor, savedCommitment, fromStatus, toStatus, changedFields);
+    return savedCommitment;
   }
 
   @Transactional
@@ -158,9 +238,17 @@ public class WeeklyCommitmentWorkflow {
     WeeklyCommitment commitment = findCommitment(id);
     assertOwnerOrManager(actor, commitment);
     requireTransition(commitment, CommitmentStatus.RECONCILING);
+    CommitmentStatus fromStatus = commitment.getStatus();
 
     commitment.setStatus(CommitmentStatus.RECONCILING);
-    return weeklyCommitmentRepository.save(commitment);
+    WeeklyCommitment savedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(
+        actor,
+        savedCommitment,
+        fromStatus,
+        CommitmentStatus.RECONCILING,
+        statusChange(fromStatus, CommitmentStatus.RECONCILING));
+    return savedCommitment;
   }
 
   @Transactional
@@ -173,12 +261,18 @@ public class WeeklyCommitmentWorkflow {
     WeeklyCommitment commitment = findCommitment(id);
     assertOwnerOrManager(actor, commitment);
     requireTransition(commitment, CommitmentStatus.RECONCILED);
+    CommitmentStatus fromStatus = commitment.getStatus();
+    Map<String, List<Object>> changedFields = statusChange(fromStatus, CommitmentStatus.RECONCILED);
+    addChange(changedFields, "actualValue", commitment.getActualValue(), actualValue);
+    addChange(changedFields, "proof", commitment.getProof(), proof);
 
     commitment.setActualValue(requireText(actualValue, "actualValue"));
     commitment.setProof(proof);
     commitment.setStatus(CommitmentStatus.RECONCILED);
     commitment.setReconciledAt(Instant.now());
-    return weeklyCommitmentRepository.save(commitment);
+    WeeklyCommitment savedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(actor, savedCommitment, fromStatus, CommitmentStatus.RECONCILED, changedFields);
+    return savedCommitment;
   }
 
   @Transactional
@@ -187,12 +281,19 @@ public class WeeklyCommitmentWorkflow {
     WeeklyCommitment commitment = findCommitment(id);
     assertOwnerOrManager(actor, commitment);
     requireTransition(commitment, CommitmentStatus.CARRIED_FORWARD);
+    CommitmentStatus fromStatus = commitment.getStatus();
+    Map<String, List<Object>> closedChangedFields =
+        statusChange(fromStatus, CommitmentStatus.CARRIED_FORWARD);
+    addChange(closedChangedFields, "actualValue", commitment.getActualValue(), actualValue);
+    addChange(closedChangedFields, "proof", commitment.getProof(), proof);
 
     commitment.setActualValue(requireText(actualValue, "actualValue"));
     commitment.setProof(proof);
     commitment.setStatus(CommitmentStatus.CARRIED_FORWARD);
     commitment.setReconciledAt(Instant.now());
     WeeklyCommitment closedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(
+        actor, closedCommitment, fromStatus, CommitmentStatus.CARRIED_FORWARD, closedChangedFields);
 
     WeeklyCommitment nextCommitment =
         WeeklyCommitment.builder()
@@ -205,12 +306,13 @@ public class WeeklyCommitmentWorkflow {
             .chessLayer(commitment.getChessLayer())
             .weekStart(commitment.getWeekStart().plusWeeks(1))
             .dueDate(dueDate == null ? commitment.getDueDate().plusWeeks(1) : dueDate)
-            .confidence(commitment.getConfidence())
+            .risk(commitment.getRisk())
             .carriedForwardFromId(commitment.getId())
             .build();
+    WeeklyCommitment savedNextCommitment = weeklyCommitmentRepository.save(nextCommitment);
+    recordEvent(actor, savedNextCommitment, null, CommitmentStatus.DRAFT, Map.of());
 
-    return new CarryForwardResult(
-        closedCommitment, weeklyCommitmentRepository.save(nextCommitment));
+    return new CarryForwardResult(closedCommitment, savedNextCommitment);
   }
 
   @Transactional
@@ -236,8 +338,16 @@ public class WeeklyCommitmentWorkflow {
     WeeklyCommitment commitment = findCommitment(id);
     assertOwnerOrManager(actor, commitment);
     requireTransition(commitment, CommitmentStatus.DRAFT);
+    CommitmentStatus fromStatus = commitment.getStatus();
     commitment.setStatus(CommitmentStatus.DRAFT);
-    return weeklyCommitmentRepository.save(commitment);
+    WeeklyCommitment savedCommitment = weeklyCommitmentRepository.save(commitment);
+    recordEvent(
+        actor,
+        savedCommitment,
+        fromStatus,
+        CommitmentStatus.DRAFT,
+        statusChange(fromStatus, CommitmentStatus.DRAFT));
+    return savedCommitment;
   }
 
   private WeeklyCommitment findCommitment(UUID id) {
@@ -309,13 +419,48 @@ public class WeeklyCommitmentWorkflow {
     return value;
   }
 
-  private int normalizeConfidence(Integer confidence) {
-    if (confidence == null) {
-      return 50;
+  private CommitmentRisk normalizeRisk(CommitmentRisk risk) {
+    return risk == null ? CommitmentRisk.ON_TRACK : risk;
+  }
+
+  private void recordEvent(
+      CommitmentActor actor,
+      WeeklyCommitment commitment,
+      CommitmentStatus fromStatus,
+      CommitmentStatus toStatus,
+      Map<String, List<Object>> changedFields) {
+    commitmentAuditEventRepository.save(
+        CommitmentAuditEvent.builder()
+            .commitment(commitment)
+            .actorSubject(actor.subject())
+            .actorName(actor.name())
+            .fromStatus(fromStatus)
+            .toStatus(toStatus)
+            .changedFieldsJson(toJson(changedFields))
+            .occurredAt(Instant.now())
+            .build());
+  }
+
+  private Map<String, List<Object>> statusChange(
+      CommitmentStatus fromStatus, CommitmentStatus toStatus) {
+    Map<String, List<Object>> changedFields = new LinkedHashMap<>();
+    addChange(changedFields, "status", fromStatus, toStatus);
+    return changedFields;
+  }
+
+  private void addChange(
+      Map<String, List<Object>> changedFields, String fieldName, Object before, Object after) {
+    if ((before == null && after == null) || (before != null && before.equals(after))) {
+      return;
     }
-    if (confidence < 0 || confidence > 100) {
-      throw new IllegalArgumentException("confidence must be between 0 and 100");
+    changedFields.put(fieldName, Arrays.asList(before, after));
+  }
+
+  private String toJson(Map<String, List<Object>> changedFields) {
+    try {
+      return objectMapper.writeValueAsString(changedFields);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Could not serialize commitment audit event", exception);
     }
-    return confidence;
   }
 }

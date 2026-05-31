@@ -81,8 +81,9 @@ public class WeeklyCommitment extends AbstractAuditingEntity {
   @Column(name = "due_date", nullable = false)
   private LocalDate dueDate;
 
+  @Enumerated(EnumType.STRING)
   @Column(nullable = false)
-  private int confidence;
+  private CommitmentRisk risk;
 
   protected WeeklyCommitment() {}
 
@@ -107,7 +108,7 @@ public class WeeklyCommitment extends AbstractAuditingEntity {
       ChessLayer chessLayer,
       LocalDate weekStart,
       LocalDate dueDate,
-      int confidence) {
+      CommitmentRisk risk) {
     this.id = id;
     this.supportingOutcome = supportingOutcome;
     this.ownerSubject = ownerSubject;
@@ -127,6 +128,6 @@ public class WeeklyCommitment extends AbstractAuditingEntity {
     this.chessLayer = chessLayer;
     this.weekStart = weekStart;
     this.dueDate = dueDate;
-    this.confidence = confidence;
+    this.risk = risk;
   }
 }

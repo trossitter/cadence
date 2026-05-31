@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,11 +21,19 @@ public class RallyCry extends AbstractAuditingEntity {
   @Column(nullable = false)
   private String title;
 
+  @Column(nullable = false)
+  private boolean active = true;
+
+  @Column(name = "archived_at")
+  private Instant archivedAt;
+
   protected RallyCry() {}
 
   @Builder
-  public RallyCry(UUID id, String title) {
+  public RallyCry(UUID id, String title, Boolean active, Instant archivedAt) {
     this.id = id;
     this.title = title;
+    this.active = active == null || active;
+    this.archivedAt = archivedAt;
   }
 }

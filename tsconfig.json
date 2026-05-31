@@ -8,6 +8,9 @@
     },
     {
       "path": "./apps/wc"
+    },
+    {
+      "path": "./apps/host"
     }
   ]
 }
