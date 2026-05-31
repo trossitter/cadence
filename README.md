@@ -1,84 +1,103 @@
 # Cadence
 
-Cadence is a weekly execution-planning module for ST6 Partners. It replaces loose 15Five-style weekly check-ins with a guided workflow where every commitment is tied to the RCDO hierarchy:
+Cadence is a weekly execution-planning module intended to replace the current 15Five-style weekly planning flow. It fits as a micro-frontend inside the existing PA host application (meaning the host would continue to own shell navigation, authentication, and broader app context) and owns the weekly commitment workflow: contributor planning, manager/director review, RCDO alignment, reconciliation, and carry-forward. The key product move is that every weekly commitment must link to a Supporting Outcome in the RCDO hierarchy, so weekly work becomes structurally connected to strategy instead of being reviewed as free-form status text.
 
-`Rally Cry -> Defining Objective -> Supporting Outcome`
+This repo is intentionally structured like the production target: a Vite Module Federation remote plus a Spring Boot backend. 
 
-The product is shaped as a micro-frontend remote that can be mounted inside an existing PA host app. The host keeps navigation, auth, and shell ownership; Cadence owns the weekly execution loop: plan, link, lock, review, reconcile, and carry forward.
+## Status
 
-## What To Try First
+What is real:
 
-Open the app and follow the shortest path:
+- The frontend app exists at `apps/wc`.
+- It builds as a Vite 5 Module Federation remote and emits `remoteEntry.js`.
+- It uses React 18, Redux Toolkit, RTK Query, Tailwind, and Flowbite React.
+- The shipped React UI has a Contributor/Director workspace toggle, a current-week commitment table, RCDO links, lifecycle status, chess layer, contributor create/reconcile forms, and director roll-up/review surfaces.
+- Static render options show alternate Director/Contributor demo directions, including a working view toggle in plain HTML.
+- The backend exists at `backend`.
+- It uses Spring Boot 3.3, Java 21, Spring Data JPA, Flyway, PostgreSQL, Auth0 resource-server wiring, Spotless, SpotBugs, and JaCoCo.
+- There is an initial RCDO and weekly-commitment schema with Flyway seed data plus workflow metadata columns.
+- The backend has a `WeeklyCommitmentWorkflow` service for create, update, delete, lock, review, reconciliation, transition, and carry-forward behavior.
+- Backend smoke, controller, and workflow tests exist.
+- Frontend unit, build, typecheck, and Chromium E2E checks pass.
+- Chromium E2E now proves the real Contributor/Director alpha workflow path with mocked API responses and the static Director/Contributor demo toggle.
+- A plain GitHub Actions workflow exists for frontend and backend checks.
 
-1. In `Contributor`, create a commitment.
-2. Pick a Supporting Outcome so the work has a strategic address.
-3. Add planned value, owner, chess layer, and due date.
-4. Toggle to `Director` and review the team roll-up.
-5. Return to `Contributor` and reconcile actual value or carry the work forward.
+What is not real yet:
 
-The intended UX direction is guided and action-first. The user should know the next move immediately. Tables exist for review, but the main product should feel more like configuring and confirming a high-value commitment than filling out a tax form line by line.
-
-## What Is Real
-
-- React 18 frontend under `apps/wc`.
-- Vite Module Federation remote named `cadence`, exposing `./CadenceApp` and a self-contained `./CadenceRoot` (its own store + auth) for host mounting.
-- Demo host harness (`apps/host`) that mounts the `cadence` remote over Module Federation; see `docs/HOST_HARNESS.md`.
-- Contributor/Director workspace toggle in the React app.
-- Contributor create/edit form with owner, Supporting Outcome, chess layer, due date, and planned value.
-- Contributor reconciliation queue with actual value and carry-forward path.
-- Director team roll-up, lock action, manager review decision, and review note surface.
-- RTK Query API layer for current week, create, update, lock, reconciliation, review, and manager dashboard calls.
-- Spring Boot 3.3 backend under `backend`.
-- Java 21, Spring Data JPA, PostgreSQL, Flyway, Auth0 resource-server wiring, JaCoCo, Spotless, and SpotBugs.
-- Audited RCDO and weekly commitment entities.
-- `WeeklyCommitmentWorkflow` service enforcing commitment-level lifecycle rules.
-- Backend endpoints for CRUD, lock, transition, review, reconciliation, carry-forward, and manager dashboard.
-- Flyway migrations for RCDO seed data plus workflow metadata.
-- Static HTML render options for three Director/Contributor product directions.
-- Frontend unit, typecheck, build, Chromium E2E, backend tests, JaCoCo, Spotless, and SpotBugs pass locally.
-
-## What Is Still Alpha
-
-- A demo host harness (`apps/host`) now mounts the remote, but host integration is not yet verified end-to-end or against the real PA host.
-- The Contributor/Director toggle is local UI state, not permission-backed by the PA host or Auth0.
-- The backend has commitment-level lifecycle enforcement, but not a full week aggregate with durable transition events.
-- RCDO selection uses seeded/demo options in the UI; there is no `GET /api/rcdo/tree` endpoint yet.
+- The Director/Contributor toggle is local UI state, not permission-backed role enforcement from Auth0 or the PA host.
+- The backend lifecycle rules are only partially proven. There is a commitment-level workflow service, but no week-level lock endpoint, separate transition audit history, or frontend lifecycle workflow.
+- CRUD is still incomplete from a product perspective. Backend update/delete exist, but list-by-user, production validation UX, and frontend reconciliation/review flows are not complete.
+- Some newer frontend API hooks and types still need contract alignment with the current backend workflow endpoints and statuses; alpha fallback writes can make the UI look more complete than the backend path currently is.
+- Auth0 is wired structurally but not integrated with a real ST6 tenant.
+- A demo host harness (`apps/host`) now mounts the remote over Module Federation, but the remote has not been tested inside the real PA host app or verified end-to-end.
 - Outlook/Microsoft Graph integration is not implemented.
-- Manager dashboard pagination exists at the API shape level, but not with a production-scale 175-person data set.
-- E2E covers the frontend workflow with mocked API responses; browser proof against the real backend is the next useful hardening step.
+- Manager dashboard pagination has backend shape, but not the final production UX for 175+ people or 2000 records.
+- Tests use H2 for the Spring smoke path, not Testcontainers PostgreSQL.
+- The CI workflow has not been proven green on GitHub yet.
+- No demo video exists yet.
 
-## Why This Stack
-
-- **Vite Module Federation**: matches the micro-frontend requirement and lets Cadence mount into a host without rewriting the host.
-- **React**: fits the existing PA-style frontend target and supports a focused interactive workflow.
-- **RTK Query**: keeps API state, caching, and invalidation centralized instead of scattering fetch calls through the UI.
-- **Spring Boot**: gives a production-shaped service layer, validation path, security integration, and test ecosystem.
-- **PostgreSQL + Flyway**: fits the relational domain: RCDO hierarchy, weekly commitments, lifecycle state, review metadata, and carry-forward links.
-- **JaCoCo + Spotless + SpotBugs**: prove this is not only a visual prototype; the backend has enforceable quality gates.
-- **Playwright**: proves the actual user path across Contributor and Director surfaces.
-
-## Repository Map
+## Architecture
 
 ```text
 cadence/
-  apps/
-    wc/        React + Vite Module Federation remote
-    wc-e2e/    Playwright E2E tests
-  backend/     Spring Boot / Java 21 API
-  docs/        Architecture, PRD coverage, render options, AI usage notes
-  docker-compose.yml
+├── apps/
+│   ├── wc/        # React 18 + Vite 5 Module Federation remote
+│   ├── wc-e2e/    # Playwright E2E tests
+│   └── host/      # Demo MF host that mounts the cadence remote
+├── backend/       # Spring Boot 3.3 / Java 21 API
+├── docs/          # Technical notes and AI usage log
+└── docker-compose.yml
 ```
 
-Key files:
+The deeper architecture and demo proof narrative lives in `docs/ARCHITECTURE.md`.
+
+The brutal PRD coverage matrix lives in `docs/PRD_COVERAGE.md`. Short version:
+
+- Covered: micro-frontend remote shape, RCDO-linked commitment display, add-commitment API path, Spring Boot/Flyway/JPA scaffold, commitment-level workflow service, pageable manager endpoint, Auth0 resource-server structure, and local automated checks.
+- Partially covered: Director/Contributor workflow, lifecycle states, manager review, reconciliation, carry-forward, and demo storytelling. These exist as alpha React surfaces, backend workflow, architecture, static renders, API hooks, or simple endpoints, not as a finished operating workflow.
+- Not covered: PA host integration, real ST6 Auth0 tenant, Outlook/Microsoft Graph, week-level lock workflow, separate review/transition audit history, production scale proof, and demo video.
+
+Static render directions for the Director/Contributor split live in `docs/render-options`:
+
+- `option-1-operating-room.html`
+- `option-2-workflow-timeline.html`
+- `option-3-executive-ledger.html`
+
+## Frontend
+
+The frontend is a client-side SPA remote:
+
+- Remote name: `cadence`
+- Remote entry: `apps/wc/dist/assets/remoteEntry.js`
+- Exposed modules: `./CadenceApp` and `./CadenceRoot` (self-contained — own store + auth — used by the demo host)
+- Local dev port: `4200`
+
+A demo Module Federation host that mounts the remote lives at `apps/host` (see `docs/HOST_HARNESS.md`).
+
+Main files:
 
 - `apps/wc/src/app/app.tsx`
 - `apps/wc/src/app/api/cadence-api.ts`
-- `backend/src/main/java/com/st6/cadence/domain/WeeklyCommitmentWorkflow.java`
-- `backend/src/main/java/com/st6/cadence/web/WeeklyCommitmentController.java`
-- `docs/ARCHITECTURE.md`
-- `docs/PRD_COVERAGE.md`
+- `apps/wc/vite.config.mts`
 
-## Run Locally
+## Backend
+
+The backend is a Spring Boot API with:
+
+- Audited JPA entities
+- RCDO hierarchy tables
+- Weekly commitment table
+- Pageable manager endpoint
+- Auth0 JWT resource server configuration
+- Flyway migration and seed data
+
+Main files:
+
+- `backend/src/main/java/com/st6/cadence/web/WeeklyCommitmentController.java`
+- `backend/src/main/java/com/st6/cadence/domain`
+- `backend/src/main/resources/db/migration/V1__initial_schema.sql`
+
+## Local Setup
 
 Install dependencies:
 
@@ -92,18 +111,11 @@ Start PostgreSQL:
 docker compose up -d postgres
 ```
 
-Use Java 21 if installed through Homebrew:
+Set Java 21 if using Homebrew OpenJDK:
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH
-```
-
-Run the backend in local permit-all mode:
-
-```bash
-cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 Run the frontend:
@@ -112,19 +124,20 @@ Run the frontend:
 yarn dev
 ```
 
-Open:
+Run the backend:
 
-```text
-http://localhost:4200
+```bash
+cd backend
+./mvnw spring-boot:run
 ```
 
-## Verify
+## Verification
 
 Frontend:
 
 ```bash
-yarn typecheck
 yarn test
+yarn typecheck
 yarn build
 yarn e2e
 ```
@@ -137,29 +150,41 @@ cd backend
 ./mvnw verify spotless:check spotbugs:check
 ```
 
-Last local verification on May 31, 2026:
+Verified locally on May 28, 2026:
 
-- `yarn typecheck`
 - `yarn test`
+- `yarn typecheck`
 - `yarn build`
 - `yarn e2e`
 - `./mvnw test`
 - `./mvnw verify spotless:check spotbugs:check`
 
-## Render Options
+Verified locally on May 31, 2026:
 
-Static product directions live in `docs/render-options`.
+- `yarn e2e`
 
-- `option-1-operating-room.html`: dense manager triage.
-- `option-2-workflow-timeline.html`: lifecycle-first guided flow.
-- `option-3-executive-ledger.html`: data-heavy review and audit surface.
+Backend note: `./mvnw test` was not completed in the May 31 pass because the default shell could not locate a Java runtime. Use the Java 21 setup above before rerunning backend verification.
 
-For the mounted-host demo, the strongest UX direction is the timeline/guided flow: fewer clicks, one obvious next action, and immediate visual feedback about strategic alignment.
+## Environment
 
-## Interview Summary
+Copy `.env.example` to `.env` and replace placeholders when real ST6 values exist.
 
-Cadence is not just a form for weekly status. It is a production-shaped execution system that makes weekly work accountable to strategy. The technical spine is a federated React remote, RTK Query API boundary, Spring Boot workflow service, PostgreSQL/Flyway persistence, and quality gates. The product spine is a two-role workflow: contributors create and reconcile RCDO-linked commitments; directors review alignment, risk, and carry-forward decisions.
+Current placeholders include:
 
-## Bottom Line
+- Auth0 issuer, client ID, and audience
+- Cadence API URL
+- PostgreSQL credentials
 
-This is now a credible workflow alpha, not just a scaffold. The next leap is UX polish inside the artificial host: make the first action obvious, reduce form friction, replace table-first planning with guided commitment construction, and prove the full loop against the real backend.
+## Open Decisions
+
+- Confirm Playwright over Cypress/Cucumber with ST6.
+- Clarify Microsoft Graph scope: calendar sync, email notifications, or both.
+- Get PA host Module Federation shared dependency versions.
+- Get ST6 Auth0 tenant/client configuration.
+- Decide whether backend integration tests should use Testcontainers PostgreSQL before demo.
+
+## AI Usage
+
+AI usage is tracked in `docs/AI_USAGE_LOG.md`.
+
+
