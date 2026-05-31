@@ -1,10 +1,8 @@
 # Cadence
 
-Cadence is a prototype weekly-planning module for ST6 Partners. The goal is to replace loose 15Five-style check-ins with a workflow where every weekly commitment must map to the RCDO hierarchy:
+Cadence is a weekly execution-planning module intended to replace the current 15Five-style weekly planning flow. It fits as a micro-frontend inside the existing PA host application (meaning the host would continue to own shell navigation, authentication, and broader app context) and owns the weekly commitment workflow: contributor planning, manager/director review, RCDO alignment, reconciliation, and carry-forward. The key product move is that every weekly commitment must link to a Supporting Outcome in the RCDO hierarchy, so weekly work becomes structurally connected to strategy instead of being reviewed as free-form status text.
 
-Rally Cry -> Defining Objective -> Supporting Outcome.
-
-This repo is intentionally structured like the production target: a Vite Module Federation remote plus a Spring Boot backend. It is not production-ready yet.
+This repo is intentionally structured like the production target: a Vite Module Federation remote plus a Spring Boot backend. 
 
 ## Brutally Honest Status
 
