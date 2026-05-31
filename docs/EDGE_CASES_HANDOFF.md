@@ -1,14 +1,16 @@
 # Handoff: "great" edge-case signals
 
-For Codex. These are the five sharp signals that move Cadence from a working
-weekly tracker to something 15Five structurally can't do. Each entry says what
-the signal *is*, what data we already have vs. must add, the backend change, and
+For Codex. These are the **four** sharp signals that move Cadence from a working
+weekly tracker to something 15Five structurally can't do. (A fifth —
+over-optimism calibration — was cut; see the bottom.) Each entry says what the
+signal *is*, what data we already have vs. must add, the backend change, and
 **how to show it** — because an unsurfaced signal is worthless.
 
 Grounding (verified against current code):
-- `WeeklyCommitment` (domain + `types.ts`) has: `status`, `confidence` (0–100),
-  `chessLayer`, `weekStart`, `lockedAt/reviewedAt/reconciledAt`,
-  `carriedForwardFromId`, `supportingOutcome`, owner/manager fields.
+- `WeeklyCommitment` (domain + `types.ts`) has: `status`, `confidence` (0–100 —
+  **being replaced**, see Model change), `chessLayer`, `weekStart`,
+  `lockedAt/reviewedAt/reconciledAt`, `carriedForwardFromId`, `supportingOutcome`,
+  owner/manager fields.
 - State machine (`WeeklyCommitmentWorkflow.requireTransition`): DRAFT → LOCKED →
   {APPROVED | NEEDS_REVISION} → {RECONCILING} → {RECONCILED | CARRIED_FORWARD}.
   RECONCILED/CARRIED_FORWARD are terminal. `assertEditable` already blocks edits
@@ -18,26 +20,53 @@ Grounding (verified against current code):
 - RCDO entities (`RallyCry`/`DefiningObjective`/`SupportingOutcome`) currently
   have **only** `id` + `title` — no priority, no active/archived flag.
 - The frontend already computes `ownerRollup` (per-owner total/locked/reconciled/
-  atRisk) in `app.tsx`.
+  atRisk) in `app.tsx`. `atRisk` currently keys off `confidence < 70` — it should
+  read the new risk ordinal instead.
 
-## Design rule for all five
+## Design rule for all four
 
 These are **manager-side exception signals**. Default audience is the **Director
 workspace + a weekly exception digest**, not the contributor's own face. The
 contributor sees only the non-judgmental version of their own item (e.g. "carried
-3 weeks", not "you over-commit"). Badges are quiet and title-case — no large
-all-caps, color-coded by severity (slate → amber → red).
+3 weeks"), never a capacity or calibration judgment. Badges are quiet and
+title-case — no large all-caps, color-coded by severity (slate → amber → red).
+
+---
+
+## Model change (prerequisite): confidence → risk ordinal
+
+Replace the numeric `confidence` (0–100) with a three-state **risk ordinal**:
+`ON_TRACK | AT_RISK | BLOCKED`.
+
+**Why:** a self-rated 0–100 is subjective false precision (why 70 and not 65?) and
+one more number an owner has to invent every week — the busywork-that-feels-
+skippable failure that sinks 15Five. Three honest states are easy to set, easy to
+read, and enough to drive every risk surface we need.
+
+**Change:**
+- Backend: `enum CommitmentRisk { ON_TRACK, AT_RISK, BLOCKED }`; migration replaces
+  `confidence integer` with `risk varchar(16) not null default 'ON_TRACK'` (or keep
+  `confidence` nullable for one release if you want a soft migration).
+- `types.ts`: `risk: 'ON_TRACK' | 'AT_RISK' | 'BLOCKED'` (drop `confidence: number`).
+- Form: the 0–100 input becomes a 3-option select. Optional nicety: default to
+  `BLOCKED` when a blocker/overdue condition is present.
+- Derivations: `summary.atRisk` / `ownerRollup.atRisk` become `risk !== 'ON_TRACK'`
+  (or split AT_RISK vs BLOCKED); the demo `demoConfidence` arrays become `demoRisk`.
+
+**Show it:** a small ordinal pill on the row — slate `On track`, amber `At risk`,
+red `Blocked`. That's the whole risk UI; no gauges, no percentages.
 
 ---
 
 ## Sequencing (do these in order)
 
-1. **#4 Audit event log — the keystone.** Unblocks confidence-at-lock snapshots
-   (needed by #3) and outcome-change detection (strengthens #1). Build first.
-2. **#2 Chronic carry** and **#5 Capacity** — cheap, computable from today's data,
+1. **Model change (risk ordinal)** — small but prerequisite; everything below reads
+   it. Do first.
+2. **#4 Audit event log — the keystone.** Honest edit history + the reliable lock
+   timestamp that #1 detection needs. Build next.
+3. **#2 Chronic carry** and **#5 Capacity** — cheap, computable from today's data,
    no schema change. Quick wins, ship alongside.
-3. **#1 Outcome deprioritized** — needs new RCDO fields (see open decision).
-4. **#3 Over-optimism** — depends on #4's snapshots.
+4. **#1 Outcome deprioritized** — needs the new RCDO active/archived fields.
 
 ---
 
@@ -55,10 +84,8 @@ create table commitment_audit_events (
   commitment_id uuid not null references weekly_commitments(id),
   actor_subject varchar(255) not null,
   actor_name varchar(255) not null,
-  actor_is_manager boolean not null,     -- derives "blessed carry" for #3
   from_status varchar(32),
   to_status varchar(32) not null,
-  confidence_at_event integer,          -- snapshot, powers #3
   changed_fields jsonb,                  -- {field: [old, new]} for edits
   occurred_at timestamptz not null
 );
@@ -66,10 +93,9 @@ create index idx_audit_commitment on commitment_audit_events(commitment_id, occu
 ```
 **Backend:** in `WeeklyCommitmentWorkflow`, append one event on each mutation
 (`create/update/lock/review/startReconciliation/reconcile/carryForward/
-reopenDraft`). Capture `confidence_at_event` on `lock` specifically. Cheapest
-implementation: a private `record(commitment, fromStatus, toStatus, changedFields)`
-helper called at the end of each method; or a Spring `ApplicationEventPublisher`
-if you'd rather decouple.
+reopenDraft`). Cheapest implementation: a private `record(commitment, fromStatus,
+toStatus, changedFields)` helper called at the end of each method; or a Spring
+`ApplicationEventPublisher` if you'd rather decouple.
 
 **Show it:** a small clock affordance on any commitment with >1 event → opens a
 right-side timeline drawer (status chips + actor + time, "edited after lock"
@@ -143,49 +169,32 @@ outcome"). This pairs naturally with the coverage-gap / strategic-drift read.
 
 ---
 
-## #3 — Over-optimism calibration (gentle, manager-only)
+## #3 (CUT) — Over-optimism calibration
 
-**Signal:** a person who repeatedly locks in high confidence but doesn't deliver —
-calibration feedback, not a scorecard.
+**Cut.** It depended on confidence being a trustworthy number, and we're replacing
+the 0–100 self-score with a 3-state risk ordinal (above). A "locked at ≥80 but
+missed" calibration has no meaningful input once the number is gone, and building a
+per-person over-commit score on a fuzzy self-rating is noise-on-noise — plus a
+calibration scorecard risks exactly the surveillance feel that sinks 15Five. Park
+it; revisit only if the risk ordinal ever proves reliable enough to calibrate
+against.
 
-**Data:** needs confidence-at-lock, which today is mutable and reset to DRAFT on
-edit. **Depends on #4** (`confidence_at_event` on the lock event). "Missed"
-(decided): ended `NEEDS_REVISION`, or ended `CARRIED_FORWARD` **only when the
-carry was not blessed**; `RECONCILED` = met; **blessed carries are excluded
-entirely** — neither hit nor miss.
-
-**Blessed carry = derived, not declared.** A carry is blessed when the
-`CARRIED_FORWARD` audit event's `actor_is_manager` is true (a director rolled it),
-or the commitment carried an `APPROVED` managerReview. No approval screen, no
-extra click — it falls out of the #4 event log. (If #3 is built before #4, add a
-`carried_by_manager boolean` to `weekly_commitments`, set from `actor.manager()`
-in `carryForward()`, as a standalone equivalent.) Rationale: counting every
-rollover as a miss punishes honesty and pushes people to silently re-draft instead
-of carrying forward truthfully — re-creating the performative behavior Cadence
-exists to kill.
-
-**Backend:** per owner, over a trailing window (**default 8 weeks, min 4 samples**),
-compute: among commitments locked at confidence **≥ 80**, the fraction that ended
-missed. Expose as `calibration: { sample, highConfidenceMissRate }` on the owner
-roll-up.
-
-**Show it:** a quiet dot/tooltip beside the owner in the Director roll-up only —
-"tends to over-commit (5/6 high-confidence items slipped)". Never punitive, never
-shown to peers. Suppress entirely below the min sample.
+Cutting #3 also removes the need for `confidence_at_event` snapshots and the entire
+blessed-carry / `actor_is_manager` apparatus — both existed *only* to make #3 fair.
+The audit log (#4) keeps its full value without them.
 
 ---
 
-## Decisions (all resolved — Galadriel)
+## Decisions (resolved — Galadriel)
 
 1. **#1 model — binary active/archived.** No priority rank; archiving cascades
    down a branch.
-2. **Audience — director-only.** #3 calibration and #5 capacity appear only in the
+2. **Audience — director-only.** Capacity (#5) and the exception digest live in the
    Director workspace. Contributors see their own #2 carry and #4 history, framed
    neutrally. Keeps the tool off the surveillance path that sinks 15Five.
-3. **#3 "missed" — blessed carries excluded, derived not declared.** Blessed = the
-   carry was made by a manager (`actor.manager()`) or the commitment had an
-   `APPROVED` managerReview; no approval ritual. Reasoning: punishing honest
-   rollovers re-creates the performative behavior Cadence exists to kill.
+3. **Confidence → risk ordinal.** Replace the 0–100 self-score with
+   `ON_TRACK | AT_RISK | BLOCKED`. Consequence: **#3 over-optimism calibration is
+   cut** (it had no honest input without a numeric confidence).
 4. **#5 capacity — count of open items, not chess layer.** Load = an owner's
    non-terminal commitments for the week; flag > 6. No weighting, no new field;
    the chess layer is shown for context only (it encodes importance, not effort).
