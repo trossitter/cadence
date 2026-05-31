@@ -4,7 +4,7 @@ Cadence is a weekly execution-planning module intended to replace the current 15
 
 This repo is intentionally structured like the production target: a Vite Module Federation remote plus a Spring Boot backend. 
 
-## Brutally Honest Status
+## Status
 
 What is real:
 
@@ -184,6 +184,4 @@ Current placeholders include:
 
 AI usage is tracked in `docs/AI_USAGE_LOG.md`.
 
-## Bottom Line
 
-This is a solid scaffold and a credible first slice. It is not a finished weekly-planning product. The next meaningful work is to implement the actual lifecycle rules, complete weekly commitment CRUD, wire real Auth0, and test the remote inside its host.
