@@ -21,7 +21,7 @@ interface CommitmentFixture {
   status: 'DRAFT' | 'LOCKED' | 'RECONCILING' | 'RECONCILED' | 'CARRIED_FORWARD';
   chessLayer: 'KING' | 'QUEEN' | 'ROOK' | 'BISHOP' | 'KNIGHT' | 'PAWN';
   dueDate: string;
-  confidence: number;
+  risk: 'ON_TRACK' | 'AT_RISK' | 'BLOCKED';
   rcdo: RcdoFixture;
   managerReview?: {
     decision: 'APPROVED' | 'NEEDS_OWNER_UPDATE' | 'ESCALATED';
@@ -67,7 +67,7 @@ test('runs the real Contributor and Director workflow path with mocked API respo
   const directorButton = page.getByRole('button', { name: 'Director' });
 
   await expect(
-    page.getByRole('heading', { name: /weekly commitments tied/i }),
+    page.getByRole('heading', { name: /Week of June 1/i }),
   ).toBeVisible();
   await expect(contributorButton).toHaveAttribute('aria-pressed', 'true');
   await expect(directorButton).toHaveAttribute('aria-pressed', 'false');
@@ -213,7 +213,7 @@ async function mockCadenceApi(page: Page) {
       status: 'LOCKED',
       chessLayer: 'QUEEN',
       dueDate: '2026-06-05',
-      confidence: 82,
+      risk: 'ON_TRACK',
       rcdo: rcdoByOutcomeId[executionOutcomeId],
       managerReview: {
         decision: 'APPROVED',
@@ -230,7 +230,7 @@ async function mockCadenceApi(page: Page) {
       status: 'RECONCILING',
       chessLayer: 'ROOK',
       dueDate: '2026-06-05',
-      confidence: 71,
+      risk: 'AT_RISK',
       rcdo: rcdoByOutcomeId[hiringOutcomeId],
     },
   ];
@@ -298,7 +298,7 @@ async function mockCadenceApi(page: Page) {
         chessLayer:
           createdPayload.chessLayer as CommitmentFixture['chessLayer'],
         dueDate: createdPayload.dueDate,
-        confidence: 68,
+        risk: (createdPayload.risk as CommitmentFixture['risk']) ?? 'ON_TRACK',
         rcdo: rcdoByOutcomeId[supportingOutcomeId],
       };
       commitments = [createdCommitment, ...commitments];
