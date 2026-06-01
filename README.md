@@ -34,6 +34,7 @@ What is not real yet:
 - A demo host harness (`apps/host`) now mounts the remote over Module Federation, but the remote has not been tested inside the real PA host app or verified end-to-end.
 - Outlook/Microsoft Graph integration is not implemented.
 - Manager dashboard pagination has backend shape, but not the final production UX for 175+ people or 2000 records.
+- The manager endpoint serializes a raw Spring `PageImpl`, whose JSON shape Spring itself warns is not stable across upgrades. The frontend reads the flat envelope (`totalElements`), so a Spring upgrade or a `VIA_DTO` switch would silently null that field and make the team-total count wrong — both ends must move to a nested `page` envelope together.
 - Tests use H2 for the Spring smoke path, not Testcontainers PostgreSQL.
   
 
