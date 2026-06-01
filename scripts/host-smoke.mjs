@@ -27,12 +27,14 @@ try {
   console.log(`→ opening ${HOST_URL}`);
   await page.goto(HOST_URL, { waitUntil: 'networkidle', timeout: TIMEOUT });
 
-  // 1. Host chrome rendered.
-  await page.waitForSelector('.host-bar', { timeout: TIMEOUT });
+  // 1. Host chrome rendered. Key on the semantic landmark, not a styling class —
+  //    the host chrome's classes are owned by Tailwind and change freely.
+  await page.getByRole('banner').waitFor({ timeout: TIMEOUT });
   console.log('✓ host shell rendered');
 
   // 2. Federated remote mounted — Cadence-owned content inside the host stage.
-  const brand = page.locator('.host-stage').getByText('Cadence', { exact: true }).first();
+  const stage = page.getByRole('main');
+  const brand = stage.getByText('Cadence', { exact: true }).first();
   await brand.waitFor({ timeout: TIMEOUT });
   await page.getByRole('button', { name: 'Contributor' }).waitFor({ timeout: TIMEOUT });
   await page.getByRole('button', { name: 'Director' }).waitFor({ timeout: TIMEOUT });
